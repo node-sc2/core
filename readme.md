@@ -33,6 +33,8 @@ engine.connect().then(() => {
 });
 ```
 
+Now make sure you have an instance of the SC2 client running with the proto server. On windows, you would do this by navigating in a command prompt to: `C:\Program Files (x86)\StarCraft II\Support64` and running the command: `"C:\Program Files (x86)\StarCraft II\Versions\Base70154\SC2_x64.exe" -listen 127.0.0.1 -port 5000 -displayMode 0`, assuming default installation location and uptodate Base version. NOTE: In the near future a launcher will be added so this 'just works' across all platforms.
+
 Now you can watch it go with `node main.js`. Wasn't that easy? Now this isn't going to win you any awards... but it might win you a few games against the built-in AI.
 
 ### Overview
