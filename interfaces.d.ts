@@ -71,7 +71,7 @@ interface System extends SystemObject {
 }
 
 interface BuilderSystem extends System {
-    onStep?(world: World, gameLoop: number, result: BuildResult): Promise<any>;
+    onStep?(world: Partial<World>, gameLoop?: number, result?: BuildResult): Promise<any>;
 }
 
 interface SystemWrapper<T> {
@@ -143,7 +143,7 @@ interface UnitResource {
     withCurrentOrders: (abilityId: number) => Unit[];
 }
 
-interface UnitFilter extends SC2APIProtocol.Unit { }
+interface UnitFilter extends Partial<Unit> {}
 
 interface UnitSystem extends EngineObject {
     onStep: (world: World) => Promise<any>;
