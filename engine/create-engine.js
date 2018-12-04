@@ -16,7 +16,7 @@ const { NodeSC2Error, GameEndedError } = require('./errors');
 
 // const STEP_DELAY_MIN = 33;
 
-const STEP_COUNT = parseInt(process.env.STEP_COUNT, 10) || 2;
+const STEP_COUNT = parseInt(process.env.STEP_COUNT, 10) || 4;
 
 const NOOP = () => {};
 
