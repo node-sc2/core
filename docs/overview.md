@@ -68,7 +68,7 @@ The three resources used above are `units`, `map`, and `actions`. There are othe
 The `units` resource is a very important part of any sc2 bot, since almost everything in the game is considered a `unit`, including workers, combat units, buildings and structures, mineral fields, destructable rocks, etc etc. The `units` resource is updated every step by a system internal to the engine, and exposes a number of methods to access units through all sorts of custom filters. Some of these are by metadata, like `getClosest()`, `getAlive()`, or `inProgress()`. Others are quick helpers / shortcuts by attribute or type, like `getWorkers()` (seen above), `getUpgradeFacilities()`, `getStructures()`, etc. Finally, others allow for more specific filtering such as `getAll()`, `getByTag()`, and `withCurrentOrders()`, all of which accept various arguments. Frequently there is more than one way to come to the same result. As an example, lets say you wanted to pick all of your Zealots which are idle:
 
 ```js
-const { ZEALOT } = require('@node-sc2/core/constants/unit-type);
+const { ZEALOT } = require('@node-sc2/core/constants/unit-type');
 
 //...
 
