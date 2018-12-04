@@ -1,0 +1,18 @@
+{
+    "extends": "problems",
+    "env": {
+        "node": true
+    },
+    "parserOptions": {
+        "ecmaVersion": 2018
+    },
+    "rules": {
+        "no-else-return": "off",
+        "no-unused-vars": ["error", {
+            "varsIgnorePattern": "ignored|debug",
+            "argsIgnorePattern": "ignored"
+        }],
+        "array-callback-return": "off",
+        "semi": ["error", "always"]
+    }
+}
