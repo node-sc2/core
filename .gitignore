@@ -53,6 +53,7 @@ node_modules/
 .cache
 
 ### VisualStudioCode ###
+.vscode/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
