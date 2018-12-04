@@ -1,3 +1,5 @@
+/// <reference types="@node-sc2/proto" />
+
 interface Point2D extends SC2APIProtocol.Point2D { }
 interface Point3D extends SC2APIProtocol.Point { }
 
@@ -69,7 +71,7 @@ interface System extends SystemObject {
 }
 
 interface BuilderSystem extends System {
-    onStep(world: World, gameLoop: number, result: BuildResult): Promise<any>;
+    onStep?(world: World, gameLoop: number, result: BuildResult): Promise<any>;
 }
 
 interface SystemWrapper<T> {

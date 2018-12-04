@@ -1,7 +1,7 @@
 'use strict';
 
 const PF = require('pathfinding');
-const { Alliance } = require('../constants');
+const { Alliance } = require('../constants/enums');
 const { distance } = require('../utils/geometry/point');
 
 /**
