@@ -125,7 +125,7 @@ Then we're going to add an `onStep` consumer to check on our gateways too:
         // all gateways that are done building and idle
         const idleGateways = units.getById(GATEWAY, { noQueue: true, buildProgress: 1 });
 
-        if (idleGateways) {
+        if (idleGateways.length > 0) {
             // if there are some, send a command to each to build a zealot
             return Promise.all(idleGateways.map(gateway => actions.train(ZEALOT, gateway)));
         }
@@ -138,7 +138,8 @@ Remember to also add the `ZEALOT` constant to your list of requires at the top o
 So now we have our bases saturated more optimally, and zealots pumping out of all the gateways, great!. But there are still some issues you notice no doubt. The zealots just sort of... stand there next to the gateways as they pop out. Let's rally them to somewhere outside of our natural. To do that, we're going to add a little clause to our existing `onUnitCreated` consumer:
 
 ```js
-// add this to the top of the filee to access the `combatTypes` unit group
+/* add this to the top of the file to access the `combatTypes` unit group definition.
+ * this is just a convenience array of all types that are considered 'combat' units */
 const { combatTypes } = require('@node-sc2/core/constants/groups');
 
 //... then lets update our `onUnitCreated` method....

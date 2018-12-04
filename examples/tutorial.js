@@ -47,11 +47,9 @@ const eightGateAllIn = {
             }
         }
 
-        // all gateways that are done building and idle
         const idleGateways = units.getById(GATEWAY, { noQueue: true, buildProgress: 1 });
 
-        if (idleGateways) {
-            // if there are some, send a command to each to build a zealot
+        if (idleGateways.length > 0) {
             return Promise.all(idleGateways.map(gateway => actions.train(ZEALOT, gateway)));
         }
     },
