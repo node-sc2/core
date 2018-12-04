@@ -91,7 +91,7 @@ In part 1 we got a basic wireframe put together. We built a pylon, a gateway, a 
             const threeWorkers = units.getClosest(newBuilding.pos, units.getMineralWorkers(), 3);
             // add the `gasWorker` label, this makes sure they aren't used in the future for building
             threeWorkers.forEach(worker => worker.labels.set('gasWorker', true));
-            // send them to bind at the `newBuilding` (the assimilator)
+            // send them to mine at the `newBuilding` (the assimilator)
             return actions.mine(threeWorkers, newBuilding);
         }
     },
