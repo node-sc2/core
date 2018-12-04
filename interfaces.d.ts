@@ -372,7 +372,7 @@ interface ResourceManager {
 }
 
 interface World {
-    agent?: Agent;
+    agent: Agent;
     data: DataStorage;
     resources: ResourceManager;
 }
