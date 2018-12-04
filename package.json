@@ -18,7 +18,7 @@
     "eslint-config-problems": "^1.1.0"
   },
   "dependencies": {
-    "@node-sc2/proto": "^0.5.4",
+    "@node-sc2/proto": "^0.5.5",
     "chalk": "^2.4.1",
     "convert-hrtime": "^2.0.0",
     "create-error": "^0.3.1",
