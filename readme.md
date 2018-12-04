@@ -52,6 +52,12 @@ Currently there is no in-place mechanism to submit a bot to any ladder or tourna
 ### Features and Roadmap
 This readme will be updated with a link to a Trello board shortly, outlining feature development roadmap progress. On top of that, github issues can be used to discuss features and bugs.
 
+### Speed Control
+Default is 4 frames per step. This can be adjusted with the `STEP_COUNT` env var... for example, `STEP_COUNT=8 node main.js` for faster simulations.
+
+### Debugging
+`node-sc2` makes use of the `debug` library. Run your agent with `DEBUG=sc2:debug:*` for additional helpful output, or `DEBUG=sc2:*` for way too much output that's probably not too helpful :) For extra fun, run your script with `node --inspect`, open a chrome instance, navigate to `chrome://inspect` and click on "Open dedicated DevTools for Node". Enjoy the full debugging experience (including cpu and memory profiling, pausing, breakpoints, etc).
+
 ### Getting Help
 First I would encourage you to read through all available documentation. Beyond this readme, three other user documents are available:
 
