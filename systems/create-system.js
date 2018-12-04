@@ -83,7 +83,7 @@ function createSystem(sys, opts = {}) {
                             } else if (err instanceof NodeSC2Error) {
                                 debugSilly(`System onStep error: on${pascalCase(event.name)} in ${system.name}: `, err);
                             } else {
-                                console.warn(`System onStep error: on${pascalCase(event.name)} in ${system.name}: `);
+                                debug(`System onStep error: on${pascalCase(event.name)} in ${system.name}: `);
                                 debug(err.message);
                                 debug(err.stack);
                             }
@@ -96,7 +96,7 @@ function createSystem(sys, opts = {}) {
                             } else if (err instanceof NodeSC2Error) {
                                 debugSilly(`Event handler error: on${pascalCase(event.name)} in ${system.name}: `, err);
                             } else {
-                                console.warn(`Event handler error: on${pascalCase(event.name)} in ${system.name}: `);
+                                debug(`Event handler error: on${pascalCase(event.name)} in ${system.name}: `);
                                 debug(err.message);
                                 debug(err.stack);
                             }
