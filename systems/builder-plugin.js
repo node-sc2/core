@@ -12,7 +12,7 @@ const NOOP = () => {};
 
 /** @type {{[index: string]: BuildHelper }} */
 const taskFunctions = {
-    do: (id) => ({ type: 'ability', id }),
+    ability: (id) => ({ type: 'ability', id }),
     build: (id, qty = 1, opts = {}) => ({ type: 'build', id, qty, opts }),
     train: (id, qty = 1, opts = {}) => ({ type: 'train', id, qty, opts }),
     upgrade: (id) => ({ type: 'upgrade', id, qty: 1}),
