@@ -1,8 +1,6 @@
 'use strict';
 
-const protobuf = require('protobufjs');
-
-const api = protobuf.loadSync('proto/sc2api.proto');
+const api = require('@node-sc2/proto/root');
 
 // these enums are unique to node-sc2
 

@@ -1,6 +1,6 @@
 {
   "name": "@node-sc2/core",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "A lightweight node.js framework to facilitate writing agents (or 'bots') for Starcraft II in JavaScript.",
   "main": "sc2.js",
   "typings": "sc2.d.ts",
@@ -18,7 +18,7 @@
     "eslint-config-problems": "^1.1.0"
   },
   "dependencies": {
-    "@node-sc2/proto": "^0.5.5",
+    "@node-sc2/proto": "^0.5.6",
     "chalk": "^2.4.1",
     "convert-hrtime": "^2.0.0",
     "create-error": "^0.3.1",
