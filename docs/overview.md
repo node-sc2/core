@@ -21,7 +21,7 @@ A system is an encapsulated part of your agent. Think of them like middleware in
 // in worker-rush-system.js
 const { createSystem } = require('@node-sc2/core');
 
-const workerRushSystem = {
+const workerRushSystem = createSystem({
     name: 'WorkerRushSystem',
     type: 'agent',
     onGameStart({ resources }) {
@@ -30,9 +30,9 @@ const workerRushSystem = {
         const workers = units.getWorkers();
         return actions.attackMove(workers, map.getEnemyMain().townhallPosition);
     }
-};
+});
 
-module.exports = createSystem(workerRushSystem);
+module.exports = workerRushSystem;
 ```
 
 Then, in our main entry point, we require the system and mount it on our agent:

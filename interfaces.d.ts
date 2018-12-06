@@ -390,7 +390,7 @@ interface Engine {
     connect: () => Promise<SC2APIProtocol.ResponsePing>;
     runGame: (map: string, players: Array<{ type: number, race: number, agent?: Agent }>) => Promise<SC2APIProtocol.ResponseJoinGame>
     createGame: (map: string, playerSetup: SC2APIProtocol.PlayerSetup[], realtime?: boolean) => Promise<SC2APIProtocol.ResponseCreateGame>;
-    joinGame: (agent: Agent, options?: object) => Promise<any>;
+    joinGame: (agent: Agent, options?: object) => Promise<[World, SC2APIProtocol.PlayerResult[]]>;
     runLoop: () => any;
     dispatch: () => Promise<any>;
     systems: SystemWrapper<EngineObject>[];
