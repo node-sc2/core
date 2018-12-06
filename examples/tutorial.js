@@ -87,4 +87,4 @@ const eightGateAllIn = createSystem({
     },
 });
 
-module.exports = createSystem(eightGateAllIn);
+module.exports = eightGateAllIn;
