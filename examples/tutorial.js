@@ -15,8 +15,7 @@ const {
 
 const { build, upgrade } = taskFunctions;
 
-/** @type {EventReader<SystemObject>} */
-const eightGateAllIn = {
+const eightGateAllIn = createSystem({
     name: 'EightGateAllIn',
     type: 'build',
     defaultOptions: {
@@ -29,7 +28,7 @@ const eightGateAllIn = {
         [21, build(CYBERNETICSCORE)],
         [26, build(TWILIGHTCOUNCIL)],
         [34, upgrade(CHARGE)],
-  	  	[34, build(GATEWAY, 7)],
+        [34, build(GATEWAY, 7)],
     ],
     async onStep({ resources }) {
         const { units, map, actions, debug } = resources.get();
@@ -86,6 +85,6 @@ const eightGateAllIn = {
             return actions.attackMove([newUnit], map.getCombatRally());
         }
     },
-};
+});
 
 module.exports = createSystem(eightGateAllIn);
