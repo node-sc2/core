@@ -29,7 +29,7 @@ const NOOP = () => {};
  * @param {object} opts
  * @returns {Engine}
  */
-function createEngine(opts = {}) {
+function createEngine(opts = { port: 5000, host : '127.0.0.1' }) {
     opts.onGameEnd = opts.onGameEnd || NOOP;
 
     const world = World();
