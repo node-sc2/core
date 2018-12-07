@@ -382,18 +382,20 @@ type EngineOptions = {
     port?: number;
 }
 
+type GameResult = [World, SC2APIProtocol.PlayerResult[]];
+
 interface Engine {
     lastRequest?: [number, number];
     loopDelay?: number;
     use(systems: SystemWrapper<EngineObject>): void;
     use(systems: SystemWrapper<EngineObject>[]): void;
     connect: () => Promise<SC2APIProtocol.ResponsePing>;
-    runGame: (map: string, players: Array<{ type: number, race: number, agent?: Agent }>) => Promise<SC2APIProtocol.ResponseJoinGame>
+    runGame: (map: string, players: Array<{ type: number, race: number, agent?: Agent }>) => Promise<GameResult>
     createGame: (map: string, playerSetup: SC2APIProtocol.PlayerSetup[], realtime?: boolean) => Promise<SC2APIProtocol.ResponseCreateGame>;
-    joinGame: (agent: Agent, options?: object) => Promise<[World, SC2APIProtocol.PlayerResult[]]>;
-    runLoop: () => any;
+    joinGame: (agent: Agent, options?: object) => Promise<GameResult>;
+    runLoop: () => Promise<GameResult>;
     dispatch: () => Promise<any>;
     systems: SystemWrapper<EngineObject>[];
-    firstRun: () => Promise<void>
-    onGameEnd: (results: SC2APIProtocol.PlayerResult[]) => void;
+    firstRun: () => Promise<GameResult>
+    onGameEnd: (results: SC2APIProtocol.PlayerResult[]) => GameResult;
 }
