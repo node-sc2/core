@@ -4,15 +4,17 @@ const debugBuild = require('debug')('sc2:debug:build');
 const debugBuildSilly = require('debug')('sc2:silly:build');
 const { distance } = require('../utils/geometry/point');
 const getRandom = require('../utils/get-random');
-const { Alliance, BuildOrder, BuildResult } = require('../constants/enums');
-const { ASSIMILATOR, NEXUS, PYLON } = require('../constants/unit-type');
+const { Alliance, BuildOrder, BuildResult, Race } = require('../constants/enums');
+const { BUILD_REACTOR, BUILD_TECHLAB } = require('../constants/ability');
+const { PYLON } = require('../constants/unit-type');
 const { WorkerRace } = require('../constants/race-map');
+const { gasMineTypes, townhallTypes } = require('../constants/groups');
 
 const NOOP = () => {};
 
 /** @type {{[index: string]: BuildHelper }} */
 const taskFunctions = {
-    ability: (id) => ({ type: 'ability', id }),
+    ability: (id) => ({ type: 'ability', id, qty: 1 }),
     build: (id, qty = 1, opts = {}) => ({ type: 'build', id, qty, opts }),
     train: (id, qty = 1, opts = {}) => ({ type: 'train', id, qty, opts }),
     upgrade: (id) => ({ type: 'upgrade', id, qty: 1}),
@@ -28,7 +30,7 @@ function builderPlugin(system) {
 
     /** @type {{[index: string]: any}} */
     const buildFnSyms = {
-        do: Symbol('ability'),
+        ability: Symbol('ability'),
         build: Symbol('build'),
         train: Symbol('train'),
         upgrade: Symbol('upgrade'),
@@ -157,35 +159,10 @@ function builderPlugin(system) {
         return systemOnStep(world, gameLoop, this.state[buildSym][task.index], result);
     };
 
-    /** @type {BuildFunction} */
-    system[buildFnSyms.build] = async function({ agent, resources }, task) {
-        if (!agent.canAfford(task.id)) return BuildResult.CANNOT_SATISFY;
-
-        const { actions, units, map } = resources.get();
-
-        const [main, natural] = map.getExpansions();
-
-        if (task.id === ASSIMILATOR) {
-            try {
-                await actions.buildGasMine();
-                return BuildResult.SUCCESS;
-            } catch(e) {
-                return BuildResult.ERROR;
-            }
-        } else if (task.id === NEXUS) {
-            const expansionLocation = map.getAvailableExpansions()[0].townhallPosition;
-
-            const foundPosition = await actions.canPlace(NEXUS, [expansionLocation]);
-            // @TODO: if we can't place - try to clear out obstacles (like a burrowed zergling)
-            if (!foundPosition) return BuildResult.CANNOT_SATISFY;
-
-            try {
-                await actions.build(NEXUS, foundPosition);
-                return BuildResult.SUCCESS;
-            } catch(e) {
-                return BuildResult.ERROR;
-            }
-        } else {
+    const buildPlacement = {
+        async [Race.PROTOSS]({ resources }, task) {
+            const { actions, map, units } = resources.get();
+            const [main, natural] = map.getExpansions();
             const mainMineralLine = main.areas.mineralLine;
 
             const pylonsNearProduction = units.getById(PYLON)
@@ -210,9 +187,32 @@ function builderPlugin(system) {
             const foundPosition = await actions.canPlace(task.id, placements);
             if (!foundPosition) return BuildResult.CANNOT_SATISFY;
 
-            // debug.setDrawCells('buildPlacement', placements, expansions[0].zPosition);
-            // debug.updateScreen();
-            // drawDebug(bot, [foundPosition], bot.main);
+            try {
+                await actions.build(task.id, foundPosition);
+                return BuildResult.SUCCESS;
+            } catch (e) {
+                return BuildResult.ERROR;
+            }
+        },
+        async [Race.TERRAN]({ resources }, task) {
+            const { actions, map, units } = resources.get();
+            const [main] = map.getExpansions();
+            const mainMineralLine = main.areas.mineralLine;
+
+            const placements = main.areas.placementGrid
+                .filter((point) => {
+                    return (
+                        (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
+                        (units.getStructures({ alliance: Alliance.SELF })
+                            .map(u => u.pos)
+                            .every(eb => distance(eb, point) > 3))
+                    );
+                });
+
+            if (placements.length <= 0) return BuildResult.CANNOT_SATISFY;
+
+            const foundPosition = await actions.canPlace(task.id, placements);
+            if (!foundPosition) return BuildResult.CANNOT_SATISFY;
 
             try {
                 await actions.build(task.id, foundPosition);
@@ -220,7 +220,42 @@ function builderPlugin(system) {
             } catch (e) {
                 return BuildResult.ERROR;
             }
-            
+        },
+        async [Race.ZERG]() {
+            return BuildResult.ERROR;
+        },
+    };
+
+    /** @type {BuildFunction} */
+    system[buildFnSyms.build] = async function(world, task) {
+        const { agent, resources } = world;
+
+        if (!agent.canAfford(task.id)) return BuildResult.CANNOT_SATISFY;
+
+        const { actions, map } = resources.get();
+
+        if (gasMineTypes.includes(task.id)) {
+            try {
+                await actions.buildGasMine();
+                return BuildResult.SUCCESS;
+            } catch(e) {
+                return BuildResult.ERROR;
+            }
+        } else if (townhallTypes.includes(task.id)) {
+            const expansionLocation = map.getAvailableExpansions()[0].townhallPosition;
+
+            const foundPosition = await actions.canPlace(task.id, [expansionLocation]);
+            // @TODO: if we can't place - try to clear out obstacles (like a burrowed zergling)
+            if (!foundPosition) return BuildResult.CANNOT_SATISFY;
+
+            try {
+                await actions.build(task.id, foundPosition);
+                return BuildResult.SUCCESS;
+            } catch(e) {
+                return BuildResult.ERROR;
+            }
+        } else {
+            return buildPlacement[agent.race](world, task);
         }
     };
 
@@ -275,6 +310,29 @@ function builderPlugin(system) {
             return BuildResult.SUCCESS;
         } catch (e) {
             debugBuildSilly('BUILD UPGRADE ERR:', e);
+            return BuildResult.ERROR;
+        }
+    };
+
+    /** @type {BuildFunction} */
+    system[buildFnSyms.ability] = async function({ data, resources }, task) {
+        const { actions, units } = resources.get();
+
+        const canDo = data.findUnitTypesWithAbility(task.id);
+
+        let unitsCanDo = units.getByType(canDo);
+
+        if ([BUILD_REACTOR, BUILD_TECHLAB].includes(task.id)) {
+            unitsCanDo = unitsCanDo.filter(u => u.addOnTag === '0');
+        }
+        
+        if (unitsCanDo.length <= 0) return BuildResult.CANNOT_SATISFY;
+
+        try {
+            await actions.do(task.id, [unitsCanDo[0].tag]);
+            return BuildResult.SUCCESS;
+        } catch (e) {
+            debugBuild('BUILD ABILITY ERR:', e);
             return BuildResult.ERROR;
         }
     };

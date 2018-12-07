@@ -25,6 +25,13 @@ function createActionManager(world) {
             return this.sendAction({
                 abilityId,
                 unitTags: tags,
+            })
+            .then(async (res) => {
+                if (res.result[0] !== 1) {
+                    throw new Error(`Could not perform ability, result ${res.result[0]}`);
+                }
+
+                return res;
             });
         },
         async move(units, pos, queue = false) {
