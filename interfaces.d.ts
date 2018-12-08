@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /// <reference types="@node-sc2/proto" />
 
 interface Point2D extends SC2APIProtocol.Point2D { }
@@ -159,6 +160,7 @@ type Cluster = {
 }
 
 type ExpansionArea = {
+    hull: Array<Point2D>;
     areaFill: Array<Point2D>;
     placementGrid: Array<Point2D>;
     mineralLine: Array<Point2D>;
@@ -384,9 +386,20 @@ type EngineOptions = {
 
 type GameResult = [World, SC2APIProtocol.PlayerResult[]];
 
+type LauncherOptions = {
+    listen?: string;
+    port?: number;
+    force?: boolean;
+    forceAll?: boolean;
+    displayMode?: number;
+}
+
+type Launcher = (options: LauncherOptions) => NodeJS.Process | number;
+
 interface Engine {
     lastRequest?: [number, number];
     loopDelay?: number;
+    launcher: Launcher;
     use(systems: SystemWrapper<EngineObject>): void;
     use(systems: SystemWrapper<EngineObject>[]): void;
     connect: () => Promise<SC2APIProtocol.ResponsePing>;

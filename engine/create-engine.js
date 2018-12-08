@@ -7,6 +7,7 @@ const pascalCase = require('pascal-case');
 // const delay = require('delay');
 // const chalk = require('chalk');
 const hrtimeH = require('convert-hrtime');
+const launcher = require('./launcher');
 const World = require('./create-world');
 const frameSystem = require('../systems/frame');
 const unitSystem = require('../systems/unit');
@@ -26,10 +27,17 @@ const NOOP = () => {};
 // }
 
 /**
- * @param {object} opts
+ * @param {object} options
  * @returns {Engine}
  */
-function createEngine(opts = { port: 5000, host : '127.0.0.1' }) {
+function createEngine(options = {}) {
+    const opts = {
+        port: 5000,
+        host : '127.0.0.1',
+        launch: true,
+        ...options,
+    };
+    
     opts.onGameEnd = opts.onGameEnd || NOOP;
 
     const world = World();
@@ -37,6 +45,7 @@ function createEngine(opts = { port: 5000, host : '127.0.0.1' }) {
 
     /** @type {Engine} */
     const engine = {
+        launcher,
         use(sys) {
             if (Array.isArray(sys)) {
                 sys.forEach(s => this.systems.push(s));
@@ -46,6 +55,10 @@ function createEngine(opts = { port: 5000, host : '127.0.0.1' }) {
         },
         systems: [],
         async connect() {
+            if (opts.launch) {
+                await launcher(opts);
+            }
+
             const pingRes = await _client.connect(opts);
 
             /** 
