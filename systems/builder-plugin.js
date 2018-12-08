@@ -128,7 +128,7 @@ function builderPlugin(system) {
         const buildTask = this.state[buildSym][task.index];
 
         if (buildTask.touched === false) {
-            debugBuild(`starting new build task: `, buildTask);
+            debugBuild(`starting new build task: %o`, buildTask);
         }
 
         buildTask.touched = true;
