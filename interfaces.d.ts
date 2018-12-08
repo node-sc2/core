@@ -382,6 +382,7 @@ interface World {
 type EngineOptions = {
     host?: string;
     port?: number;
+    launch?: boolean;
 }
 
 type GameResult = [World, SC2APIProtocol.PlayerResult[]];
