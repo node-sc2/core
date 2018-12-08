@@ -120,7 +120,7 @@ Then we're going to add an `onStep` consumer to check on our gateways too:
 
 ```js
     async onStep({ agent, resources }) {
-        const { units, actions } = resources.get();
+        const { units, actions, map } = resources.get();
 
         // all gateways that are done building and idle
         const idleGateways = units.getById(GATEWAY, { noQueue: true, buildProgress: 1 });
@@ -168,6 +168,10 @@ So now we have a small army (or a large one?!) of zealots hanging out in our nat
 What a better time to attack than when your upgrade finishes? Good, let's do it!
 
 ```js
+// first, add the `Alliance` enum to requires at the top:
+const { Alliance } = require('@node-sc2/core/constants/enums');
+
+// ... now down in your system definition, let's add a new consumer
     async onUpgradeComplete({ resources }, upgrade) {
         if (upgrade === CHARGE) {
             const { units, map, actions } = resources.get();
@@ -193,8 +197,8 @@ Initial system state can be set using the `defaultOptions` prop, lets set two pr
 ```js
     defaultOptions: {
         state: {
-            armySize: 12
-            buildCompleted: false
+            armySize: 12,
+            buildCompleted: false,
         },
     },
 ```
@@ -203,14 +207,14 @@ So now we have some default state, we'll get to what it means in a bit. Also, wh
 
 ```js
     async buildComplete() {
-        this.setState({ buildComplete: true });
+        this.setState({ buildCompleted: true });
     },
 ```
 
-Great, now we have a way of checking if our build is complete or not. Just by looking at `this.state.buildComplete`. Also we have a default army size of 12. Let's use these variables to add some logic to our `onStep` function.
+Great, now we have a way of checking if our build is complete or not. Just by looking at `this.state.buildCompleted`. Also we have a default army size of 12. Let's use these variables to add some logic to our `onStep` function.
 
 ```js
-    if (this.state.buildComplete) {
+    if (this.state.buildCompleted) {
         // only get idle units, so we know how many are in waiting
         const idleCombatUnits = units.getCombatUnits().filter(u => u.noQueue); 
 

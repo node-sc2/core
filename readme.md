@@ -35,7 +35,7 @@ engine.connect().then(() => {
 
 Now you can run it with `node main.js`. Wasn't that easy? Now this isn't going to win you any awards... but it might win you a few games against the built-in AI.
 
-**NOTE**: The first time you run the bot, it will take up to 15 seconds to launch the SC2 client. After that, the default behavior is to keep the client running, so starting a new game will take only a moment. Also, feel free to manage the client yourself, as node-sc2 will just use the existing instance listening on the selected port, if it exists.
+**NOTE**: The first time you run the bot, it will take up to 15 seconds to launch the SC2 client. After that, the default behavior is to keep the client running, so starting a new game will take only a moment. Also, feel free to manage the client yourself, as `node-sc2` will just use the existing instance listening on the selected port.
 
 ### Overview
 An overview of the library and its usage is available by clicking [here](docs/overview.md). The overview is the recommended place to get started. If you want to skip it and go straight to a tutorial of a bot that can consistently win against the built-in Elite AI, click [here](docs/tutorial.md).
@@ -52,10 +52,13 @@ Currently there is no in-place mechanism to submit a bot to any ladder or tourna
 ### Features and Roadmap
 This readme will be updated with a link to a Trello board shortly, outlining feature development roadmap progress. On top of that, github issues can be used to discuss features and bugs.
 
-### Speed Control
-Default is 4 frames per step. This can be adjusted with the `STEP_COUNT` env var... for example, `STEP_COUNT=8 node main.js` for faster simulations.
+### Environmental Variables
+Various settings can be adjusted through env vars in your shell. In a windows command shell, this is done with the `set` command, eg: `set DEBUG=sc2:debug:*`. 
 
-### Debugging
+#### Speed Control
+Default is 4 frames per step. This can be adjusted with the `STEP_COUNT` env var... for example, `STEP_COUNT=8` for faster simulations.
+
+#### Debugging
 `node-sc2` makes use of the `debug` library. Run your agent with `DEBUG=sc2:debug:*` for additional helpful output, or `DEBUG=sc2:*` for way too much output that's probably not too helpful :) For extra fun, run your script with `node --inspect`, open a chrome instance, navigate to `chrome://inspect` and click on "Open dedicated DevTools for Node". Enjoy the full debugging experience (including cpu and memory profiling, pausing, breakpoints, etc).
 
 ### Getting Help
@@ -70,7 +73,7 @@ Beyond that, there are also two documents aimed towards those wanting to help de
 - [Design](docs/design.md)
 - [Internals](docs/internals.md)
 
-Beyond the documentation, Starcraft 2 AI has a *very* active community, available through this discord invitation link: https://discord.gg/Emm5Ztz - This library specifically can be discussed in the #javascript channel. Come say hi!
+Beyond the documentation, Starcraft 2 AI has a very active community, available through this discord invitation link: https://discord.gg/Emm5Ztz - This library specifically can be discussed in the #javascript channel. Come say hi!
 
 
 
