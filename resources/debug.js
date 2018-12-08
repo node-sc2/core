@@ -14,11 +14,14 @@ function createDebugger(world) {
     return {
         updateScreen() {
             const { actions: { _client } } = world.resources.get();
-            // const debugCommands = Object.values(commands).reduce((commands, command) => {
-            //     return commands.concat(command);
-            // }, []);
 
-            //return _client.debug({ debug: debugCommands });
+            if (process.env.DEBUG) {                
+                const debugCommands = Object.values(commands).reduce((commands, command) => {
+                    return commands.concat(command);
+                }, []);
+                return _client.debug({ debug: debugCommands });
+            }
+
             return _client.debug({ debug: [] });
         },
         removeCommand(id) {
@@ -39,24 +42,31 @@ function createDebugger(world) {
                         ...expansion.areas.mineralLine.map((point) => {
                             return {
                                 color: GREEN,
-                                min: { x: point.x, y: point.y , z: expansion.zPosition },
-                                max: { x: point.x + 0.5, y: point.y + 0.5, z: expansion.zPosition + 0.03 },
+                                min: { x: point.x + 0.25, y: point.y + 0.25 , z: expansion.zPosition },
+                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.03 },
                             };
                         }),
                         ...expansion.areas.behindMineralLine.map((point) => {
                             return {
                                 color: RED,
-                                min: { x: point.x, y: point.y, z: expansion.zPosition },
-                                max: { x: point.x + 0.5, y: point.y + 0.5, z: expansion.zPosition + 0.02 },
+                                min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
+                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.02 },
                             };
                         }),
                         ...expansion.areas.areaFill.map((point) => {
                             return {
                                 color: BLACK,
-                                min: { x: point.x, y: point.y, z: expansion.zPosition },
-                                max: { x: point.x + 0.5, y: point.y + 0.5, z: expansion.zPosition + 0.01 },
+                                min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
+                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.01 },
                             };
-                        })
+                        }),
+                        ...expansion.areas.hull.map((point) => {
+                            return {
+                                color: YELLOW,
+                                min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
+                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.04 },
+                            };
+                        }),
                     ],
                     spheres: [
                         {

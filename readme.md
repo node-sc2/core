@@ -35,7 +35,7 @@ engine.connect().then(() => {
 
 Now you can run it with `node main.js`. Wasn't that easy? Now this isn't going to win you any awards... but it might win you a few games against the built-in AI.
 
-**NOTE**: The first time you run the bot, it will take up to 15 seconds to launch the SC2 client. After that, the default behavior is to keep the client running, so starting a new game in an existing client takes only a moment. Also, feel free to manage the client yourself, as node-sc2 will just use the existing instance listening on the selected port, if it exists.
+**NOTE**: The first time you run the bot, it will take up to 15 seconds to launch the SC2 client. After that, the default behavior is to keep the client running, so starting a new game will take only a moment. Also, feel free to manage the client yourself, as node-sc2 will just use the existing instance listening on the selected port, if it exists.
 
 ### Overview
 An overview of the library and its usage is available by clicking [here](docs/overview.md). The overview is the recommended place to get started. If you want to skip it and go straight to a tutorial of a bot that can consistently win against the built-in Elite AI, click [here](docs/tutorial.md).
