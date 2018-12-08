@@ -1,6 +1,8 @@
 'use strict';
 
-const createSystem = require("./index");
+const hullJs = require('hull.js');
+const bresenham = require('bresenham');
+const createSystem = require('./index');
 const { consumeRawGrids } = require('../utils/map/grid');
 const { vespeneGeyserTypes } = require('../constants/groups');
 const findClusters = require('../utils/map/cluster');
@@ -85,10 +87,19 @@ function updateAreas(world, expansion) {
         return !mineralLine.find(pos => pos.x === point.x && pos.y === point.y);
     }); */ // why were we doing this? The area fill should probably include the mineral line, no?
 
+    const naiveHull = hullJs(areaFill, 1, ['.x', '.y']);
+
+    const hull = naiveHull.reduce((acc, point, i, arr) => {
+        const connector = arr[i + 1] || arr[0];
+        bresenham(point.x, point.y, connector.x, connector.y, (x, y) => acc.push({x, y}));
+        return acc;
+    }, []);
+
     return {
         ...expansion,
         areas: {
             areaFill,
+            hull,
             placementGrid: placementGrid.filter((point) => {
                 return !mineralLine.find(pos => pos.x === point.x && pos.y === point.y);
             }),
@@ -148,14 +159,20 @@ function calculateExpansions(world) {
 
     // this._expansionsFromEnemy.forEach((ex, i) => {
     //     const thPos = createPoint2D(ex.townhallPosition);
-    //     grids.pathing[thPos.y][thPos.x] = i.toString(16);
+    //     map._grids.pathing[thPos.y][thPos.x] = i.toString(16);
+    // });
+
+    // map._expansions.forEach((exp) => {
+    //     exp.areas.hull.forEach((hullCell) => {
+    //         map._grids.miniMap[hullCell.y][hullCell.x] = 'H';
+    //     });
     // });
 
     // path.forEach(([x, y]) => {
     //     grids.pathing[y][x] = 'P';
     // });
 
-    // debugGrid(grids.pathing);
+    // debugGrid(map._grids.miniMap);
 
     return expansions;
 }

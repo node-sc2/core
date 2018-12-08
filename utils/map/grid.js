@@ -18,6 +18,9 @@ function debugGrid(grid) {
                     case 'h':
                         // @ts-ignore
                         return chalk.bgGreen`░`;
+                    case 'H':
+                        // @ts-ignore
+                        return chalk.bgRed`░`;
                     default:
                         return pixel;
                 }
