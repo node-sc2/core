@@ -98,11 +98,15 @@ function createEngine(options = {}) {
 
             let mapPath;
 
-            try {
-                mapPath = await findMap(map);
-            } catch (e) {
-                console.warn(e);
-                process.exit();
+            if (map.includes('SC2Map')) {
+                mapPath = map;
+            } else {
+                try {
+                    mapPath = await findMap(map);
+                } catch (e) {
+                    console.warn(e);
+                    process.exit();
+                }
             }
 
             /** @type {SC2APIProtocol.RequestCreateGame} */
