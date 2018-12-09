@@ -7,6 +7,8 @@ There are a few existing libraries in the node.js ecosystem to work with the C++
 ### Getting started
 `npm install --save @node-sc2/core`
 
+You must also have any maps you expect to load available in the standard location (`/Maps` relative to your SC2 directory). Official map downloads can be found [here](https://github.com/Blizzard/s2client-proto#map-packs). For a more up-to-date pack of maps, join the SC2 AI discord (https://discord.gg/Emm5Ztz) and type !maps in #general.
+
 #### Hello World
 The 'hello world' of sc2 bots seems to be a worker rush, so... here we go:
 ```js
