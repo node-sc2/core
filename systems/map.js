@@ -46,7 +46,7 @@ function updateAreas(world, expansion) {
         Math.trunc(thPos.x + 3), // adding 3 to start at an x,y not occupied by the townhall
         Math.trunc(thPos.y),
         null,
-        'h',
+        104,
         isStartingLocation ? false : 15,
     );
 
@@ -81,7 +81,7 @@ function updateAreas(world, expansion) {
         Math.trunc(thPos.x),
         Math.trunc(thPos.y),
         null,
-        'h',
+        104,
         isStartingLocation ? false : 15,
     );/* .filter((point) => {
         return !mineralLine.find(pos => pos.x === point.x && pos.y === point.y);

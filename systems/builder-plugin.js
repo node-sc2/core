@@ -38,7 +38,8 @@ function builderPlugin(system) {
         worker: Symbol('worker'),
     };
 
-    const systemSetup = system.setup ? system.setup.bind(system) : NOOP;
+    // const systemSetup = system.setup ? system.setup.bind(system) : NOOP;
+    const systemOnGameStart = system.onGameStart ? system.onGameStart.bind(system) : NOOP;
     const systemOnStep = system.onStep ? system.onStep.bind(system) : NOOP;
     const buildComplete = system.buildComplete ? system.buildComplete.bind(system) : NOOP;
 
@@ -57,22 +58,33 @@ function builderPlugin(system) {
         qty: 1,
     };
 
+    function calculateSupply({ agent, data }, acc, supply, task) {
+        const isZerg = agent.race === Race.ZERG;
+
+        if (task.type === 'train') {
+            acc.supply = supply + (data.getUnitTypeData(task.id).foodRequired * task.qty);
+        } else if (task.type === 'build') {
+            // zergs consume a drone to build something...
+            if (isZerg) {
+                acc.supply = acc.supply - 1;
+            } else {
+                acc.supply = supply;
+            }
+        } else {
+            acc.supply = supply;
+        }
+    }
+
     /**
-     * @param {World} param0 
+     * @param {World} world
      * @param {Array<[number, BuildTaskI]>} bo 
      */
-    function normalizeBuildOrder({ data }, bo) {
+    function normalizeBuildOrder(world, bo) {
         if (Array.isArray(bo[0])) {
             return bo.reduce((acc, [supply, task]) => {
                 if (acc.supply >= supply) {
                     acc.buildOrder.push(createTask(task, acc.reducerIndex));
-                    
-                    if (task.type === 'train') {
-                        acc.supply = supply + (data.getUnitTypeData(task.id).foodRequired * task.qty);
-                    } else {
-                        acc.supply = supply;
-                    }
-
+                    calculateSupply(world, acc, supply, task);
                     acc.reducerIndex++;
                     return acc;
                 } else {
@@ -84,12 +96,7 @@ function builderPlugin(system) {
 
                     acc.buildOrder.push(createTask(task, acc.reducerIndex));
                     acc.reducerIndex++;
-
-                    if (task.type === 'train') {
-                        acc.supply = supply + (data.getUnitTypeData(task.id).foodRequired * task.qty);
-                    } else {
-                        acc.supply = supply;
-                    }
+                    calculateSupply(world, acc, supply, task);
                     return acc;
                 }
             }, { supply: 12, buildOrder: [], reducerIndex: 0 }).buildOrder;
@@ -100,13 +107,13 @@ function builderPlugin(system) {
         }
     }
 
-    system.setup = function(world) {
+    system.onGameStart = async function(world) {
         this.setState({
             // @ts-ignore
             [buildSym]: normalizeBuildOrder(world, system.buildOrder),
         });
         
-        return systemSetup(world);
+        return systemOnGameStart(world);
     };
 
 
@@ -221,8 +228,33 @@ function builderPlugin(system) {
                 return BuildResult.ERROR;
             }
         },
-        async [Race.ZERG]() {
-            return BuildResult.ERROR;
+        /** @param {World} param0 */
+        async [Race.ZERG]({ resources }, task) {
+            const { actions, map, units, debug } = resources.get();
+            const [main] = map.getExpansions();
+            const mainMineralLine = main.areas.mineralLine;
+
+            const placements = map.getCreep()
+                .filter((point) => {
+                    return (
+                        (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
+                        (units.getStructures({ alliance: Alliance.SELF })
+                            .map(u => u.pos)
+                            .every(eb => distance(eb, point) > 3))
+                    );
+                });
+            
+            if (placements.length <= 0) return BuildResult.CANNOT_SATISFY;
+
+            const foundPosition = await actions.canPlace(task.id, placements);
+            if (!foundPosition) return BuildResult.CANNOT_SATISFY;
+
+            try {
+                await actions.build(task.id, foundPosition);
+                return BuildResult.SUCCESS;
+            } catch (e) {
+                return BuildResult.ERROR;
+            }
         },
     };
 

@@ -10,7 +10,7 @@ type Shape = {
     width: number,
 }
 
-type Grid2D = (number | string)[][];
+type Grid2D = Array<Uint8Array>;
 type UnitTypeId = number;
 type AbilityId = number;
 
@@ -200,6 +200,7 @@ interface MapResource {
     _graph: any;
     _mapState: SC2APIProtocol.MapState;
     _mapSize: SC2APIProtocol.Size2DI;
+    getCreep: () => Point2D[];
     getGrids: () => Grids;
     getLocations: () => Locations;
     getExpansions: (alliance?: SC2APIProtocol.Alliance) => Expansion[];

@@ -1,6 +1,7 @@
 'use strict';
 
 const PF = require('pathfinding');
+const { consumeImageData } = require('../utils/map/grid');
 const { Alliance } = require('../constants/enums');
 const { distance } = require('../utils/geometry/point');
 
@@ -89,6 +90,19 @@ function createMapManager({ resources }) {
             .sort((a, b) => a.distance - b.distance)[0];
 
             return expansionOrder[closestIndex];
+        },
+        getCreep() {
+            const creepRaw = consumeImageData(this._mapState.creep, this._mapSize.x);
+
+            return creepRaw.reduce((acc, row, y) => {
+                row.forEach((pixel, x) => { 
+                    if (pixel !== 0) {
+                        acc.push({ x, y });
+                    }
+                });
+
+                return acc;
+            }, []);
         },
         getGrids() {
             return this._grids;

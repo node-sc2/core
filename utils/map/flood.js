@@ -5,8 +5,8 @@ const { distance } = require('../geometry/point');
  * @param {Grid2D} mapData 
  * @param {number} x 
  * @param {number} y 
- * @param {( string | number )} oldVal 
- * @param {( string | number )} newVal 
+ * @param {number} oldVal 
+ * @param {number} newVal 
  * @param {Array<Point2D>} filled 
  * @param {(number | boolean)} [maxReach]
  * @param {Point2D} [startPos]

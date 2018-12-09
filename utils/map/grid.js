@@ -15,10 +15,10 @@ function debugGrid(grid) {
                         return ' ';
                     case 1:
                         return '░';
-                    case 'h':
+                    case 104:
                         // @ts-ignore
                         return chalk.bgGreen`░`;
-                    case 'H':
+                    case 72:
                         // @ts-ignore
                         return chalk.bgRed`░`;
                     default:
@@ -35,12 +35,26 @@ function debugGrid(grid) {
  * @returns {Grid2D}
  */
 function consumeImageData(imageData, width) {
-    const gridarr = [...imageData.data];
+    /* new fast code, 0.02ms per digestion */
+    const arrayBuffer = imageData.data.buffer;
 
-    const grid2d = [];
-    while(gridarr.length) grid2d.push(gridarr.splice(0, width));
+    const result = [];
+    let i = 0;
+    
+    while (i < imageData.data.byteLength) {
+    	result.push(new Uint8Array(arrayBuffer, i + imageData.data.byteOffset, width));
+    	i += width;
+    }
+    
+    return result.reverse();
 
-    return grid2d;
+    /* old slow code, ~2ms per digestion */
+    // const gridarr = [...imageData.data];
+
+    // const grid2d = [];
+    // while(gridarr.length) grid2d.push(gridarr.splice(0, width));
+
+    // return grid2d;
 }
 
 /**
@@ -59,7 +73,7 @@ function consumeRawGrids(raw) {
         return row.map(pixel => {
             return pixel === 255 ? 1 : 0;
         }); 
-    }).reverse();
+    });
     
     //debugGrid(placement);
 
@@ -67,7 +81,7 @@ function consumeRawGrids(raw) {
         return row.map(pixel => {
             return pixel === 255 ? 1 : 0;
         });
-    }).reverse();
+    });
 
     //debugGrid(pathing);
 
@@ -77,9 +91,9 @@ function consumeRawGrids(raw) {
         miniMap: placement.map((row, y) => {
             return row.map((pixel, x) => {
                 if (pixel === 1 && pathing[y][x] === 1) {
-                    return 'B';
+                    return 66;
                 } else if (pixel === 0 && pathing[y][x] === 0) {
-                    return 'r';
+                    return 114;
                 } else {
                     return pixel;
                 }
@@ -88,4 +102,4 @@ function consumeRawGrids(raw) {
     };
 }
 
-module.exports = { consumeRawGrids, debugGrid };
+module.exports = { consumeRawGrids, consumeImageData, debugGrid };

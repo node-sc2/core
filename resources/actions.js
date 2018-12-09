@@ -12,6 +12,12 @@ const {
 const { GasMineRace } = require('../constants/race-map');
 const { BuildError, TrainError, GatherError } = require('../engine/errors');
 
+function getRandomN(arr, n) {
+    return Array.from({ length: n }, () => {
+        return arr[Math.floor(Math.random()*arr.length)];
+    });
+}
+
 /**
  * @returns {ActionManager}
  * @param {World} world
@@ -122,12 +128,14 @@ function createActionManager(world) {
 
             return this.sendAction(sendToMine);
         },
-        async canPlace(unitTypeId, positions) {
+        async canPlace(unitTypeId, poses) {
+            // limit to checking 10 placements because the client gets unhappy
+            const positions = poses.length <= 10 ? poses : getRandomN(poses, 10);
+
             const placements = positions.map((pos) => ({
                 targetPos: pos,
                 abilityId: world.data.getUnitTypeData(unitTypeId).abilityId,
             })).reverse();
-
 
             /** @type {SC2APIProtocol.ResponseQuery} */
             const query = await protoClient.query({ placements });
