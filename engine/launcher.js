@@ -3,6 +3,7 @@
 const debug = require('debug')('sc2:debug:launcher');
 const os = require('os');
 const fs = require('fs');
+const { promisify } = require('util');
 const { spawn } = require('child_process');
 const path = require('path');
 const findP = require('find-process');
@@ -85,4 +86,31 @@ async function launcher(options) {
     return clientProcess;
 }
 
-module.exports = launcher;
+const accessP = promisify(fs.access);
+const MAP_DIR = 'Maps';
+const SUFFIX = ".SC2Map";
+
+async function findMap(mapName) {
+    const tryPath1 = (path.join(basePath, MAP_DIR, mapName + SUFFIX));
+    const tryPath2 = (path.join(basePath, MAP_DIR, mapName.replace(/\s/g, '') + SUFFIX));
+
+    try {
+        await accessP(tryPath1, fs.constants.F_OK);
+        debug(`Map ${mapName} found in path: ${tryPath1}`);
+        return tryPath1;
+    } catch (e) {
+        debug(`${tryPath1} does not exist... trying alternative`);
+    }
+
+    try {
+        await accessP(tryPath2, fs.constants.F_OK);
+        debug(`Map ${mapName} found in path: ${tryPath2}`);
+        return tryPath2;
+    } catch (e) {
+        debug(`${tryPath2} also does not exist... cannot find map`);
+    }
+
+    throw new Error(`Map "${mapName}" not found`);
+}
+
+module.exports = { launcher, findMap };

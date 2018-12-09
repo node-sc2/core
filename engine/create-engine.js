@@ -7,7 +7,7 @@ const pascalCase = require('pascal-case');
 // const delay = require('delay');
 // const chalk = require('chalk');
 const hrtimeH = require('convert-hrtime');
-const launcher = require('./launcher');
+const { launcher, findMap } = require('./launcher');
 const World = require('./create-world');
 const frameSystem = require('../systems/frame');
 const unitSystem = require('../systems/unit');
@@ -96,19 +96,26 @@ function createEngine(options = {}) {
                 return;
             }
 
+            let mapPath;
+
+            try {
+                mapPath = await findMap(map);
+            } catch (e) {
+                console.warn(e);
+                process.exit();
+            }
+
             /** @type {SC2APIProtocol.RequestCreateGame} */
             const game = {
+                localMap: {
+                    mapPath,
+                },
                 realtime,
                 playerSetup,
             };
 
-            if (map.includes('SC2Map')) {
-                game.localMap = {
-                    mapPath: map,
-                };
-            } else {
-                game.battlenetMapName = map;
-            }
+            // not currently supporting battlenet cache maps.. cos it never works right
+            // game.battlenetMapName = map;
 
             debugEngine('CREATE GAME REQUEST: ', game);
 
