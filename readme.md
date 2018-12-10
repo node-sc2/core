@@ -1,5 +1,5 @@
 # node-sc2
-`node-sc2` is a lightweight node.js framework to facilitate writing simple agents (or "bots") for Starcraft II in JavaScript.
+`node-sc2` is a lightweight node.js framework to facilitate fast development of agents (or "bots") for Starcraft II in JavaScript.
 
 ### Why `node-sc2`?
 There are a few existing libraries in the node.js ecosystem to work with the C++ API ([sc2client-api](https://github.com/Blizzard/s2client-api)), but `node-sc2` is a pure javascript implementation of [sc2client-proto](https://github.com/Blizzard/s2client-proto), with the goal of being ergonomic across a variety of environments without the need for additional build tools. Under the hood it uses [`@node-sc2/proto`](https://github.com/node-sc2/proto#readme) as the transport layer.
