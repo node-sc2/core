@@ -76,7 +76,19 @@ function createAgent(blueprint = {}) {
                 return true;
             }
 
-            return needsOneOf.some((requirementTypeId) => {
+            // see if there's other tech aliases to satisfy these
+            const needsOneOfAny = needsOneOf.reduce((acc, techUnitType) => {
+                const aliases = data.get('units').filter(utd => utd.techAlias.includes(techUnitType));
+                if (aliases.length > 0) {
+                    const aliasUnitIds = aliases.map(a => a.unitId);
+                    acc = acc.concat([techUnitType, ...aliasUnitIds]);
+                } else {
+                    acc = acc.concat([techUnitType]);
+                }
+                return acc;
+            }, []);
+
+            return needsOneOfAny.some((requirementTypeId) => {
                 return units.getById(requirementTypeId, { buildProgress: 1 }).length > 0;
             });
         },
