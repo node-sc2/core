@@ -62,11 +62,34 @@ const unitSystem = {
             );
         };
 
+        /**
+         * Test for unit entering a skirmish
+         * @param {SC2APIProtocol.Unit} incData
+         * @param {Unit} currentUnit
+         */
+        const hasEngaged = (incData, currentUnit) => {
+            return (
+                currentUnit.engagedTargetTag === '0' &&
+                incData.engagedTargetTag !== '0'
+            );
+        };
+
+        /**
+         * Test for unit switching targets
+         * @param {SC2APIProtocol.Unit} incData
+         * @param {Unit} currentUnit
+         */
+        const hasSwitchedTargets = (incData, currentUnit) => {
+            return (
+                currentUnit.engagedTargetTag !== '0' &&
+                currentUnit.engagedTargetTag !== incData.engagedTargetTag
+            );
+        };
+
         rawUnits.forEach(unitData => {
             // unit tag from frame exists in the internal store
             if (units._units[unitData.alliance].has(unitData.tag)) {
                 const currentUnit = units._units[unitData.alliance].get(unitData.tag);
-
                 if (isFinished(unitData, currentUnit)) {
                     events.write({
                         name: "unitFinished",
@@ -78,6 +101,22 @@ const unitSystem = {
                 if (isIdle(unitData, currentUnit)) {
                     events.write({
                         name: "unitIdle",
+                        data: currentUnit,
+                        type: 'all',
+                    });
+                }
+
+                if (hasEngaged(unitData, currentUnit)) {
+                    events.write({
+                        name: "unitHasEngaged",
+                        data: currentUnit,
+                        type: 'all',
+                    });
+                }
+
+                if (hasSwitchedTargets(unitData, currentUnit)) {
+                    events.write({
+                        name: "unitHasSwitchedTargets",
                         data: currentUnit,
                         type: 'all',
                     });
