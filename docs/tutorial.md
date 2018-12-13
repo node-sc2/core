@@ -56,7 +56,7 @@ module.exports = eightGateAllIn;
 
 So let's break this down a little bit. First you'll notice we're pulling in `taskFunctions` from the main export. This is a series of helper functions while creating builds, namely, `build`, `train`, `upgrade`, and `ability`. For now we're only going to worry about `build` and `upgrade`.
 
-The build order itself is pretty simple. It's an array of tuples (fixed length arrays) where each contains `[number, BuildTask]`. That is, the first element is a number relating to at what minimum supply you to do the task, and the second element is the task itself (that we use the helper functions for). If you pass a second parameter to `build`, that will tell it the *quantity* you want of the thing you're building. The supply numbers aren't an exact science, as I wrote this up a little swiftly, but it works. As you can see, constants, required from core constant definitions, are passed through to the build functions.
+The build order itself is pretty simple. It's an array of tuples (fixed length arrays) where each contains `[number, BuildTask]`. That is, the first element is a number relating to at what minimum supply you to do the task, and the second element is the task itself (that we use the helper functions for). If you pass a second parameter to `build`, that will tell it the *quantity* you want of the thing you're building. The supply numbers aren't optimized, as I wrote this example build up a little swiftly, but it works. As you can see, constants, required from core constant definitions, are passed through to the build functions.
 
 So now, if you require this in your main entry point, and `bot.use()` it, and run your bot, you'll see a few things happening. Firstly, your nexus starts producing probes right away, great! This is because you start at 12 supply, and your first build order command is at 16, so it's trying to make enough probes to satisfy that. There's a problem, tho, that you only start with 15 supply cap - so the agent can't get to 16, oops. Wat do? Well....
 
@@ -230,10 +230,10 @@ Great, now we have a way of checking if our build is complete or not. Just by lo
     }
 ```
 
-Awesome. Now we will continuously attack in waves once our build is done, with each wave slightly larger than the last. Now pump the difficultly up to `HARDER` or `VERYHARD` (which is Elite) and let 'em rip. This simple bot will actually win against Elite AI a large % of the time (around 85%~ in my testing), only really losing to the 7RR other early cheese it sometimes pulls out.
+Awesome. Now we will continuously attack in waves once our build is done, with each wave slightly larger than the last. Now pump the difficultly up to `HARDER` or `VERYHARD` (which is Elite) and let 'em rip. This simple bot will actually win against Elite AI a large % of the time (around 85%~ in my testing), only really losing to the 7RR and other early cheese it sometimes does at random.
 
 ## Recap
-A nice starting point for a winning bot in well under 100 lines :) If you got lost anywhere along the way, here's a link to the full code of the tutorial agent: [tutorial.js](../examples/tutorial.js).
+A nice starting point for a winning bot in under 100 lines :) If you got lost anywhere along the way, here's a link to the full code of the tutorial agent: [tutorial.js](../examples/tutorial.js).
 
 ## What's Next?
 Try making some enhancements to this agent:
