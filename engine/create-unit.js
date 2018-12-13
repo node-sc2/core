@@ -1,6 +1,7 @@
 'use strict';
 
 const { Alliance } = require('../constants/enums');
+const { techLabTypes, reactorTypes } = require('../constants/groups');
 const { townhallTypes } = require('../constants/groups');
 const { GasMineRace, WorkerRace } = require('../constants/race-map');
 
@@ -11,7 +12,7 @@ const { GasMineRace, WorkerRace } = require('../constants/race-map');
  * @returns {Unit}
  */
 function createUnit(unitData, { agent, resources }) {
-    const { frame } = resources.get();
+    const { frame, units } = resources.get();
 
     const { alliance } = unitData;
 
@@ -34,6 +35,14 @@ function createUnit(unitData, { agent, resources }) {
         isCurrent() {
             // if this unit wasn't updated this frame, this will be false
             return this.lastSeen === frame.getGameLoop();
+        },
+        hasReactor() {
+            const addon = units.getByTag(this.addOnTag);
+            return reactorTypes.includes(addon.unitType);
+        },
+        hasTechLab() {
+            const addon = units.getByTag(this.addOnTag);
+            return techLabTypes.includes(addon.unitType);
         },
         update(unit) {
             Object.assign(this, unit, {
