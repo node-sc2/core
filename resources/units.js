@@ -51,7 +51,6 @@ function createUnits(world) {
         getMineralFields(filter) {
             return this.getAll(filter)
                 .filter(unit => mineralFieldTypes.includes(unit.unitType));
-
         },
         getGasGeysers(filter) {
             return this.getAll(filter)
@@ -64,11 +63,13 @@ function createUnits(world) {
                 });
         },
         inProgress(unitTypeId) {
-            return this.getAll(Alliance.SELF)
+            return this.getAlive(Alliance.SELF)
                 .filter(u => u.buildProgress < 1)
                 .filter(u => u.unitType === unitTypeId);
         },
-        
+        getUnfinished(filter) {
+            return this.getAlive(filter).filter(u => u.buildProgress < 1);
+        },
         getBases(alliance) {
             return this.getAlive(alliance ? alliance : Alliance.SELF)
                 .filter(u => u.isTownhall());
@@ -136,9 +137,8 @@ function createUnits(world) {
                 .filter(u => !u.labels.has('gasWorker'))
                 .filter(u => !u.labels.has('command'));
         },
-        
         withLabel(component) {
-            return this.getAll().filter(u => u.labels.has(component));
+            return this.getAlive().filter(u => u.labels.has(component));
         },
         getByType(unitIds) {
             const unitTypeIds = Array.isArray(unitIds) ? unitIds : [unitIds];
@@ -148,7 +148,6 @@ function createUnits(world) {
                 return unitTypeIds.includes(unit.unitType);
             });
         },
-        
         getProductionUnits(unitTypeId) {
             // get the ability needed to produce the unit
             const { abilityId } = world.data.getUnitTypeData(unitTypeId);
