@@ -48,6 +48,22 @@ const gasMineTypes = [
 ];
 
 /** @type {UnitTypeGroup} */
+const techLabTypes = [
+    unitType.TECHLAB,
+    unitType.BARRACKSTECHLAB,
+    unitType.FACTORYTECHLAB,
+    unitType.STARPORTTECHLAB,
+];
+
+/** @type {UnitTypeGroup} */
+const reactorTypes = [
+    unitType.REACTOR,
+    unitType.BARRACKSREACTOR,
+    unitType.FACTORYREACTOR,
+    unitType.STARPORTREACTOR,
+];
+
+/** @type {UnitTypeGroup} */
 const combatTypes = [
     unitType.BANSHEE,
     unitType.CYCLONE,
@@ -115,18 +131,40 @@ const gatheringAbilities = [
     abilities.HARVEST_GATHER_DRONE,
     abilities.HARVEST_GATHER_PROBE,
     abilities.HARVEST_GATHER_SCV,
-    // Abilities.HARVEST_RETURN,
-    // Abilities.HARVEST_RETURN_DRONE,
-    // Abilities.HARVEST_RETURN_MULE,
-    // Abilities.HARVEST_RETURN_PROBE,
-    // Abilities.HARVEST_RETURN_SCV,
+];
+
+const returningAbilities = [
+    abilities.HARVEST_RETURN,
+    abilities.HARVEST_RETURN_DRONE,
+    abilities.HARVEST_RETURN_MULE,
+    abilities.HARVEST_RETURN_PROBE,
+    abilities.HARVEST_RETURN_SCV,
+];
+
+const constructionAbilities = [
+    abilities.BUILD_ARMORY,
+    abilities.BUILD_BARRACKS,
+    abilities.BUILD_BUNKER,
+    abilities.BUILD_COMMANDCENTER,
+    abilities.BUILD_ENGINEERINGBAY,
+    abilities.BUILD_FACTORY,
+    abilities.BUILD_GHOSTACADEMY,
+    abilities.BUILD_MISSILETURRET,
+    abilities.BUILD_REFINERY,
+    abilities.BUILD_SENSORTOWER,
+    abilities.BUILD_STARPORT,
+    abilities.BUILD_SUPPLYDEPOT,
 ];
 
 module.exports = {
     combatTypes,
+    constructionAbilities,
     gasMineTypes,
     gatheringAbilities,
     mineralFieldTypes,
+    reactorTypes,
+    returningAbilities,
+    techLabTypes,
     townhallTypes,
     vespeneGeyserTypes
 };
