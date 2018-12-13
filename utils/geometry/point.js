@@ -33,6 +33,24 @@ function distance(a, b) {
 }
 
 /**
+ * 
+ * @param {Point2D} a 
+ * @param {Point2D} b 
+ */
+function distanceX(a, b) {
+    return Math.abs(a.x - b.x);
+}
+
+/**
+ * 
+ * @param {Point2D} a 
+ * @param {Point2D} b 
+ */
+function distanceY(a, b) {
+    return Math.abs(a.y - b.y);
+}
+
+/**
  * add point to point or number
  * @param {Point2D} point 
  * @param {(Point2D | number)} rhs 
@@ -119,4 +137,17 @@ function avgPoints(points) {
     };
 }
 
-module.exports = { areEqual, avgPoints, dotProduct, distance, distanceSquared, add, multiply, divide, closestPoint, nClosestPoint };
+module.exports = {
+    areEqual,
+    avgPoints,
+    dotProduct,
+    distance,
+    distanceX,
+    distanceY,
+    distanceSquared,
+    add,
+    multiply,
+    divide,
+    closestPoint,
+    nClosestPoint
+};
