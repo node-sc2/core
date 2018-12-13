@@ -31,7 +31,7 @@ async function launcher(options) {
     };
 
     const [samePortProcess] = await findP('port', opts.port);
-    if (samePortProcess) {
+    if (samePortProcess && samePortProcess.pid !== 0) { // could show up as pid 0 for an old TIME_WAIT process
         debug('Existing process found running on same port: %o', samePortProcess);
 
         if (options.force) {
