@@ -53,7 +53,7 @@ function createUnits(world) {
                 .filter(unit => mineralFieldTypes.includes(unit.unitType));
         },
         getGasGeysers(filter) {
-            return this.getAll(filter)
+            return this.getAlive(filter)
                 .filter(unit => vespeneGeyserTypes.includes(unit.unitType));
         },
         getStructures(filter) {
