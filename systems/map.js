@@ -128,7 +128,9 @@ function calculateExpansions(world) {
     const pathingEL = createPoint2D(map.getLocations().enemy);
     pathingEL.x = pathingEL.x + 3;
 
-    const expansions = findClusters(mineralFields)
+    let expansions;
+    try {
+        expansions = findClusters(mineralFields)
         .map((cluster) => {
             return Object.assign(cluster,  {
                 vespeneGeysers: vespeneGeysers.filter((geyser) => {
@@ -149,13 +151,16 @@ function calculateExpansions(world) {
         .sort((a, b) => a.pathFromMain.length - b.pathFromMain.length)
         .map(expansion => updateAreas(world, expansion))
         .map(expansion => Object.assign(expansion, { centroid: avgPoints(expansion.areas.areaFill) }));
-        
-    expansions[0].base = mainBase.tag;
-    
-    map.setExpansions(expansions);
 
-    debug.setRegions(expansions);
-    debug.updateScreen();
+        expansions[0].base = mainBase.tag;
+
+        map.setExpansions(expansions);
+
+        debug.setRegions(expansions);
+        debug.updateScreen();
+    } catch (e) {
+        console.warn('Map is not decomposable! If this is a 1v1 ladder map, please submit a bug report');
+    }
 
     // this._expansionsFromEnemy.forEach((ex, i) => {
     //     const thPos = createPoint2D(ex.townhallPosition);
