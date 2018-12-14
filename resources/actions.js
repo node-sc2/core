@@ -1,16 +1,19 @@
 'use strict';
 
 const debugActionManager = require('debug')('sc2:debug:actionManager');
+const Promise = require('bluebird');
 const createTransport = require('@node-sc2/proto');
 const { distance } = require('../utils/geometry/point');
 const getRandom = require('../utils/get-random');
 const {
     Ability,
-    enums: { Alliance, DisplayType },
+    enums: { Alliance },
     groups: { gasMineTypes }, 
+    UnitType: { MULE },
 } = require('../constants');
 const { GasMineRace } = require('../constants/race-map');
-const { BuildError, TrainError, GatherError } = require('../engine/errors');
+const UnitAbilites = require('../constants/unit-ability-map');
+const { ActionManagerError, BuildError, TrainError, GatherError } = require('../engine/errors');
 
 function getRandomN(arr, n) {
     return Array.from({ length: n }, () => {
@@ -27,29 +30,76 @@ function createActionManager(world) {
     
     return {
         _client: protoClient,
-        async do(abilityId, tags) {
-            return this.sendAction({
+        async do(abilityId, ts, opts = {}) {
+            const tags = Array.isArray(ts) ? ts : [ts];
+
+            /** @type {SC2APIProtocol.ActionRawUnitCommand} */
+            const doAction = {
                 abilityId,
                 unitTags: tags,
-            })
-            .then(async (res) => {
-                if (res.result[0] !== 1) {
-                    throw new Error(`Could not perform ability, result ${res.result[0]}`);
-                }
+                queueCommand: opts.queue || false,
+            };
 
-                return res;
-            });
+            if (opts.target && opts.target.tag) {
+                doAction.targetUnitTag = opts.target.tag;
+            } else if (opts.target && opts.target.x) {
+                doAction.targetWorldSpacePos = opts.target;
+            }
+
+            return this.sendAction(doAction)
+                .then(async (res) => {
+                    if (res.result[0] !== 1) {
+                        throw new Error(`Could not perform ability, result ${res.result[0]}`);
+                    }
+
+                    return res;
+                });
         },
-        async move(units, pos, queue = false) {
-            // drawDebug(this, [pos], this.expansions[1])
-            const moveTo = {
-                abilityId: Ability.MOVE,
-                targetWorldSpacePos: pos,
+        async smart(units, pos, queue = false) {
+            const smartTo = {
+                abilityId: Ability.SMART,
                 unitTags: units.map(u => u.tag),
                 queueCommand: queue,
             };
 
-            return this.sendAction(moveTo);
+            if (pos.tag) {
+                smartTo.targetUnitTag = pos.tag;
+            } else if (pos.x) {
+                smartTo.targetWorldSpacePos = pos;
+            }
+
+            return this.sendAction(smartTo)
+                .then(async (res) => {
+                    if (res.result[0] !== 1) {
+                        throw new Error(`Could not SMART unit, result ${res.result[0]}`);
+                    }
+
+                    return res;
+                });
+        },
+        async move(u, posOrUnit, queue = false) {
+            const units = Array.isArray(u) ? u : [u];
+
+            const moveTo = {
+                abilityId: Ability.MOVE,
+                unitTags: units.map(u => u.tag),
+                queueCommand: queue,
+            };
+
+            if (posOrUnit.tag) {
+                moveTo.targetUnitTag = posOrUnit.tag;
+            } else if (posOrUnit.x) {
+                moveTo.targetWorldSpacePos = posOrUnit;
+            }
+
+            return this.sendAction(moveTo)
+                .then((res) => {
+                    if (res.result[0] !== 1) {
+                        throw new Error(`Could not move unit, result ${res.result[0]}`);
+                    }
+
+                    return res;
+                });
         },
         async attack(units, unit, queue = false) {
             return this.sendAction({
@@ -72,10 +122,53 @@ function createActionManager(world) {
                 queueCommand: queue,
             });
         },
+        async swapBuildings(unitA, unitB) {
+            // both unitA and unitB pass...
+            const haveAbility = [unitA, unitB].every((unit) => {
+                // if they have LIFT, they will have LAND once they are lifted
+                return UnitAbilites[unit.unitType].includes(Ability.LIFT);
+            });
+
+            const isComplete = [unitA, unitB].every(u => u.buildProgress >= 1);
+
+            if (!haveAbility || !isComplete) {
+                throw new ActionManagerError(
+                    'These two units cannot be swapped',
+                    { data: { unitA, unitB } }
+                );
+            }
+
+            const unitAPos = unitA.pos;
+            const unitBPos = unitB.pos;
+    
+            // the is dangling on purpose, don't want to hold up our game loop on this stuff
+            Promise.all([
+                this.do(Ability.LIFT, unitA.tag),
+                this.do(Ability.LIFT, unitB.tag),
+            ])
+            .delay(100)
+            .then(() => {
+                return Promise.all([
+                    this.move([unitA], unitBPos, true),
+                    this.move([unitB], unitAPos, true),
+                ]);
+            })
+            .delay(100)
+            .then(() => {
+                return Promise.all([
+                    this.do(Ability.LAND, unitA.tag, { target: unitBPos, queue: true }),
+                    this.do(Ability.LAND, unitB.tag, { target: unitAPos, queue: true }),
+                ]);
+            }).catch((e) => {
+                debugActionManager(`Transport error while trying to engage building swap: ${e.message}`);
+            });
+
+            return null; // suppress bluebird warning
+        },
         async gather(unit, mineralField, queue = true) {
             const { units } = world.resources.get();
 
-            if (!unit.isWorker()) {
+            if (!unit.isWorker() && unit.unitType !== MULE) {
                 throw new GatherError('only workers can gather', { data: { unit, mineralField, queue }});
             }
 
@@ -246,7 +339,6 @@ function createActionManager(world) {
             const geysers = units.getGasGeysers();
             
             const geyser = geysers
-                .filter(g => g.displayType === DisplayType.VISIBLE)
                 .filter(g => units.getBases().some(b => distance(b.pos, g.pos) < 15))
                 .find(g => !geyserHasMine(g));
 
