@@ -2,7 +2,7 @@
 
 const debugBuild = require('debug')('sc2:debug:build');
 const debugBuildSilly = require('debug')('sc2:silly:build');
-const { distance } = require('../utils/geometry/point');
+const { distance, distanceX, distanceY } = require('../utils/geometry/point');
 const getRandom = require('../utils/get-random');
 const { Alliance, BuildOrder, BuildResult, Race } = require('../constants/enums');
 const { BUILD_REACTOR, BUILD_TECHLAB } = require('../constants/ability');
@@ -201,24 +201,64 @@ function builderPlugin(system) {
                 return BuildResult.ERROR;
             }
         },
+        /** @param {World} param0 */
         async [Race.TERRAN]({ resources }, task) {
             const { actions, map, units } = resources.get();
             const [main] = map.getExpansions();
             const mainMineralLine = main.areas.mineralLine;
+            let hadNear;
 
-            const placements = main.areas.placementGrid
+            let places = main.areas.placementGrid;
+
+            if (task.opts && task.opts.near) {
+                hadNear = true;
+                const [nearUnit] = units.getById(task.opts.near);
+
+                places = main.areas.placementGrid.filter(point => distance(point, nearUnit.pos) < 10);
+
+                if (places.length <= 0) {
+                    hadNear = false;
+                    places = main.areas.placementGrid;
+                }
+            }
+
+            const placements = places => places
                 .filter((point) => {
                     return (
-                        (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
+                        (mainMineralLine.every((mlp) => {
+                            return (
+                                (distanceX(mlp, point) >= 5 || distanceY(mlp, point) >= 3) // for addon room
+                            );
+                        })) &&
+                        (main.areas.hull.every((hp) => {
+                            return (
+                                (distanceX(hp, point) >= 3.5 || distanceY(hp, point) >= 1.5)
+                            );
+                        })) &&
                         (units.getStructures({ alliance: Alliance.SELF })
                             .map(u => u.pos)
-                            .every(eb => distance(eb, point) > 3))
+                            .every((eb) => {
+                                return (
+                                    (distanceX(eb, point) >= 5.5 || distanceY(eb, point) >= 4) // for addon room
+                                );
+                            })
+                        )
                     );
                 });
 
-            if (placements.length <= 0) return BuildResult.CANNOT_SATISFY;
+            const firstPlacements = placements(places);
 
-            const foundPosition = await actions.canPlace(task.id, placements);
+            const getFoundPosition = async () => {
+                let fP = await actions.canPlace(task.id, firstPlacements);
+
+                if (!fP && hadNear) {
+                    fP = await actions.canPlace(task.id, placements(main.areas.placementGrid));
+                }
+
+                return fP;
+            };
+
+            const foundPosition = await getFoundPosition();
             if (!foundPosition) return BuildResult.CANNOT_SATISFY;
 
             try {
@@ -355,7 +395,7 @@ function builderPlugin(system) {
         let unitsCanDo = units.getByType(canDo);
 
         if ([BUILD_REACTOR, BUILD_TECHLAB].includes(task.id)) {
-            unitsCanDo = unitsCanDo.filter(u => u.addOnTag === '0');
+            unitsCanDo = unitsCanDo.filter(u => u.addOnTag === '0' && u.noQueue);
         }
         
         if (unitsCanDo.length <= 0) return BuildResult.CANNOT_SATISFY;
