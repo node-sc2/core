@@ -1,7 +1,7 @@
 # node-sc2
 `node-sc2` is a lightweight node.js framework to facilitate fast development of agents (or "bots") for Starcraft II in JavaScript.
 
-### Why `node-sc2`?
+### Motivation
 There are a few existing libraries in the node.js ecosystem to work with the C++ API ([sc2client-api](https://github.com/Blizzard/s2client-api)), but `node-sc2` is a pure javascript implementation of [sc2client-proto](https://github.com/Blizzard/s2client-proto), with the goal of being ergonomic across a variety of environments without the need for additional build tools. Under the hood it uses [`@node-sc2/proto`](https://github.com/node-sc2/proto#readme) as the transport layer.
 
 ### Getting started
@@ -76,6 +76,37 @@ Beyond that, there are also two documents aimed towards those wanting to help de
 - [Internals](docs/internals.md)
 
 Beyond the documentation, Starcraft 2 AI has a very active community, available through this discord invitation link: https://discord.gg/Emm5Ztz - This library specifically can be discussed in the #javascript channel. Come say hi!
+
+### Changelog
+All notable changes to this project will be documented here (for now).
+Please note, this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+#### [0.7.0] - 2018-12-14
+##### Added
+- additional type groups added: `techLabtypes`, `reactorTypes`, `returningAbilities`, `constructionAbilities`
+- `units.getUnfinished()` - like `inProgress()` but for all unfinished units
+- `distanceX`, `distanceY`, and `subtract` point utilities
+- `unitHasEngaged` and `unitHasSwitchedTargets` events
+- `hasReactor` and `hasTechLab` unit methods
+- `near` unit type requests for terran builder system
+- ability to load a non-standard map without the map system exploding
+- `actions.swapBuildings` added (for terran addon fun)
+- `actions.smart`
+- `bluebird`
+
+##### Changed
+- BREAKING `actions` resource changes:
+  - `do` accepts array or a single tag, opts with target of a unit or point
+  - `move` now accepts a point2d or a unit as a target
+- `actions.buildGasMine` now works on snapshot (but current) geysers
+- `actions.gather` now works with mules
+- `hasTechFor` now properly includes tech aliases
+- launcher correctly ignores port being held by defunct or idle processes
+- clarified some tutorial language
+- robustifiered terran builder system placement decisions
+
+##### Removed
+- `delay`
 
 
 
