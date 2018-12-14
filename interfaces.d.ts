@@ -27,8 +27,9 @@ interface SystemObject {
     name?: string;
     type?: SystemType;
     setup?: (world: World) => void;
-    buildOrder?: Array<BuildTask>;
     defaultOptions?: SystemOptions;
+    buildOrder?: Array<BuildTask>;
+    buildComplete?: (world: World, gameLoop: number) => Promise<any>;
 }
 
 declare enum BuildOrderStatus {
@@ -112,6 +113,8 @@ interface Unit extends SC2APIProtocol.Unit {
     isTownhall: () => boolean;
     isGasMine: () => boolean;
     isCurrent: () => boolean;
+    hasReactor: () => boolean;
+    hasTechLab: () => boolean;
     update: (unit: SC2APIProtocol.Unit) => void;
     labels: Map<string, any>;
 }
@@ -139,6 +142,7 @@ interface UnitResource {
     getWorkers: () => Unit[];
     getIdleWorkers: () => Unit[];
     getMineralWorkers: () => Unit[];
+    getUnfinished: (filter?: UnitFilter) => Unit[];
     inProgress: (unitTypeId: number) => Unit[];
     withLabel: (label: string) => Unit[];
     withCurrentOrders: (abilityId: number) => Unit[];
@@ -223,20 +227,31 @@ interface MapResource {
 
 interface MapSystem extends EngineObject, EventConsumer { }
 
+type AbilityOptions = {
+    target?: Unit | Point2D, 
+    queue?: boolean,
+}
+
 interface ActionManager {
     _client?: NodeSC2Proto.ProtoClient;
     attack(units?: Unit[], unit?: Unit, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
     attackMove(u?: Unit[], p?: Point2D, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
     build(unitTypeid: number, target: Unit, worker?: Unit): Promise<SC2APIProtocol.ResponseAction>;
     build(unitTypeid: number, pos: Point2D, worker?: Unit): Promise<SC2APIProtocol.ResponseAction>;
-    do(abilityId: number, tags: string[]): Promise<SC2APIProtocol.ResponseAction>;
+    do(abilityId: number, tags: string, opts?: AbilityOptions ): Promise<SC2APIProtocol.ResponseAction>;
+    do(abilityId: number, tags: string[], opts?: AbilityOptions): Promise<SC2APIProtocol.ResponseAction>;
     buildGasMine: () => Promise<SC2APIProtocol.ResponseAction>;
     gather: (unit: Unit, mineralField?: Unit, queue?: boolean) => Promise<SC2APIProtocol.ResponseAction>;
     mine: (units: Unit[], target: Unit, queue?: boolean) => Promise<SC2APIProtocol.ResponseAction>;
+    move(units: Unit, target: Point2D, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
     move(units: Unit[], target: Point2D, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
+    move(units: Unit, target: Unit, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
     move(units: Unit[], target: Unit, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
     train: (unitTypeId: number, tag?: Unit) => Promise<SC2APIProtocol.ResponseAction>;
     upgrade: (upgradeId: number, tag?: Unit) => Promise<SC2APIProtocol.ResponseAction>;
+    smart(units: Unit[], target: Point2D, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
+    smart(units: Unit[], target: Unit, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
+    swapBuildings(unitA: Unit, unitB: Unit): Promise<null>;
     canPlace: (unitTypeId: number, positions: Point2D[]) => Promise<(Point2D | false)>;
     sendAction: (unitCommand: (SC2APIProtocol.ActionRawUnitCommand | SC2APIProtocol.ActionRawUnitCommand[])) => Promise<SC2APIProtocol.ResponseAction>;
     sendQuery: (query: SC2APIProtocol.RequestQuery) => Promise<SC2APIProtocol.ResponseQuery>;
@@ -318,6 +333,8 @@ type EventConsumer = {
     onUnitFinished?: UnitEvent;
     onEnemyFirstSeen?: UnitEvent;
     onUnitDestroyed?: UnitEvent;
+    onUnitHasEngaged?: UnitEvent;
+    onUnitHasSwitchedTargets?: UnitEvent;
 }
 
 type EventHandler = (resources: World, data?: any, event?: SystemEvent) => any;
