@@ -58,13 +58,32 @@ function distanceY(a, b) {
 function add(point, rhs) {
     if (typeof rhs === 'number') {
         return {
-            x: point.x * rhs,
-            y: point.y * rhs,
+            x: point.x + rhs,
+            y: point.y + rhs,
         };
     } else {
         return {
             x: point.x + rhs.x,
             y: point.y + rhs.y,
+        };
+    }
+}
+
+/**
+ * subtract point or number from point
+ * @param {Point2D} point 
+ * @param {(Point2D | number)} rhs 
+ */
+function subtract(point, rhs) {
+    if (typeof rhs === 'number') {
+        return {
+            x: point.x - rhs,
+            y: point.y - rhs,
+        };
+    } else {
+        return {
+            x: point.x - rhs.x,
+            y: point.y - rhs.y,
         };
     }
 }
@@ -146,6 +165,7 @@ module.exports = {
     distanceY,
     distanceSquared,
     add,
+    subtract,
     multiply,
     divide,
     closestPoint,
