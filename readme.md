@@ -81,6 +81,24 @@ Beyond the documentation, Starcraft 2 AI has a very active community, available 
 All notable changes to this project will be documented here (for now).
 Please note, this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+#### [0.7.1] - 2018-12-17
+##### Added
+- Initial support added for LADDER MANAGER COMPATIBILITY! Yay, stay tuned for docs
+- Terrain height added to map grids
+- `randomCirclePoints` added to geometry angle utils (random points within a radius)
+- added missing `toDegrees` to geometry angle utilities (to complement `toRadians`)
+- Map resouce related features:
+  - isPlaceable(point)
+  - getHeight(point)
+- added missing constant necessary to use chrono boosts
+
+##### Changed
+- Broke and fixed the debug resource (that isn't documented and no one actually uses yet anyway)... it's almost actually useful now. Soon.
+- Fixed builder to not accidentally build things where the nat townhall should go
+- The `frontOfNatural` map utility actually does what it's supposed to now (undocumented currently)
+- `actions.attack()` and `actions.attackMove()` now can accept a unit or array of units to add consistency
+- `unitEntity#isWorker()` now actually returns true for workers of any race, including mules
+
 #### [0.7.0] - 2018-12-14
 ##### Added
 - additional type groups added: `techLabtypes`, `reactorTypes`, `returningAbilities`, `constructionAbilities`
