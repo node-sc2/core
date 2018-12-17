@@ -6,7 +6,7 @@ const { distanceAAShapes } = require('../geometry/plane');
 const { MineralField, Townhall } = require('../geometry/units');
 
 function calculateTownhallPlacement(center, mineralFields, distances, stepSize = 0.5) {
-    const radiuses = distances || [5.0, 5.3, 5.6, 5.9, 6.4, 6.8];
+    const radiuses = distances || [5.0, 5.3, 5.6, 5.9, 6.4, 6.8, 7.2];
 
     // sort smallest to largest
     radiuses.sort((a, b) => a - b);
@@ -30,8 +30,8 @@ function calculateTownhallPlacement(center, mineralFields, distances, stepSize =
                     .every(distance => distance >= 3);
             });
     })
-        // get points from the smallest radius circle that returned non-empty valid positions (this will be the closest, ofc)
-        .find(spherePoints => spherePoints.length > 0);
+    // get points from the smallest radius circle that returned non-empty valid positions (this will be the closest, ofc)
+    .find(spherePoints => spherePoints.length > 0);
 
     // get the average point (they will always be very close together... uh, in theory)
     return avgPoints(validPlacements);
