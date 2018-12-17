@@ -63,11 +63,18 @@ function consumeImageData(imageData, width) {
  * @returns {Grids}
  */
 function consumeRawGrids(raw) {
-    const { mapSize, placementGrid: plGrid, pathingGrid: paGrid } = raw;
+    const { mapSize, placementGrid: plGrid, pathingGrid: paGrid, terrainHeight: teGrid } = raw;
     const width = mapSize.x;
 
     const placementGrid2D = consumeImageData(plGrid, width);
     const pathingGrid2D = consumeImageData(paGrid, width);
+    const heightGrid2D = consumeImageData(teGrid, width);
+
+    const height = heightGrid2D.map((row) => {
+        return row.map(tile => {
+            return Math.round(-100 + 200 * tile / 255);
+        });
+    });
 
     const placement = placementGrid2D.map((row) => {
         return row.map(pixel => {
@@ -86,6 +93,7 @@ function consumeRawGrids(raw) {
     //debugGrid(pathing);
 
     return {
+        height,
         placement,
         pathing,
         miniMap: placement.map((row, y) => {

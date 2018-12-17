@@ -186,6 +186,7 @@ interface Expansion {
 }
 
 type Grids = {
+    height?: Grid2D;
     miniMap?: Grid2D;
     placement?: Grid2D;
     pathing?: Grid2D;
