@@ -1,7 +1,9 @@
 "use strict";
 
 // eslint-disable-next-line
-const { WHITE, RED, GREEN, YELLOW, BLUE, TEAL, PURPLE, BLACK, GRAY } = require('../constants/color');
+const colors = require('../constants/color');
+const { WHITE, RED, GREEN, YELLOW, BLUE, TEAL, PURPLE, BLACK, GRAY } = colors;
+const getRandom = require('../utils/get-random');
 
 /**
  * @param {World} world
@@ -15,7 +17,7 @@ function createDebugger(world) {
         updateScreen() {
             const { actions: { _client } } = world.resources.get();
 
-            if (process.env.DEBUG) {                
+            if (process.env.DEBUG) {
                 const debugCommands = Object.values(commands).reduce((commands, command) => {
                     return commands.concat(command);
                 }, []);
@@ -83,15 +85,17 @@ function createDebugger(world) {
                 }
             }));
         },
-        setDrawCells(id, cPoints, zPos, color) {
+        setDrawCells(id, cPoints, zPos, opts = {}) {
+            const color = opts.color || getRandom(Object.values(colors));
             if (cPoints.length > 0) {
                 commands[id] = [{
                     draw: {
                         boxes: cPoints.map((cPoint) => {
+                            const zpos = zPos || cPoint.z;
                             return {
-                                color: color || TEAL,
-                                min: { x: cPoint.x, y: cPoint.y, z: cPoint.z || zPos },
-                                max: { x: cPoint.x + 0.5, y: cPoint.y + 0.5, z: cPoint.z || zPos + 0.1 },
+                                color,
+                                min: { x: cPoint.x + 0.25, y: cPoint.y + 0.25, z: zpos },
+                                max: { x: cPoint.x + 0.75, y: cPoint.y + 0.75, z: zpos + (opts.size || 0.5) },
                             };
                         })
                     }
@@ -105,8 +109,8 @@ function createDebugger(world) {
                         spheres: cPoints.map((cPoint) => {
                             return {
                                 color: color || YELLOW,
-                                p: { x: cPoint.x, y: cPoint.y, z: cPoint.z || zPos },
-                                r: 1.25,
+                                p: { x: cPoint.x + 0.25, y: cPoint.y + 0.75, z: cPoint.z || zPos },
+                                r: 0.5,
                             };
                         })
                     }
