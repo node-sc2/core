@@ -1,23 +1,23 @@
 'use strict';
 
-const { distance } = require('../geometry/point');
+let natGraph;
 
 /**
  * In theory this returns an area (grid) of the 'front' of your natural
- * @param {Expansion[]} expansions 
+ * @param {MapResource} map
  * @returns {Point2D[]}
  */
-function frontOfNatural(expansions) {
-    const enemyNat = expansions[expansions.length - 2];
+function frontOfNatural(map) {
+    const natural = map.getNatural();
+    const enemyNat = map.getEnemyNatural();
 
     // natural area, sorted by distance from the enemy natural
-    const natArea = expansions[1].areas.areaFill
-        .sort((a, b) => distance(enemyNat.townhallPosition, a ) - distance(enemyNat.townhallPosition, b ));
+    natGraph = natGraph || natural.areas.areaFill
+        .map(p => ({ ...p, d: map.path(p, enemyNat.townhallPosition).length }))
+        .sort((a, b) => a.d - b.d);
 
-    // cut off the front half.. so uh, it's the front
-    return natArea.slice(0, Math.floor(natArea.length / 2));
-    // drawDebug(bot, front, bot.expansions[1])
-    // return front
+    // slice off the front.. so uh, it's the front
+    return natGraph.slice(0, Math.floor(natGraph.length / 5));
 }
 
 module.exports = { frontOfNatural };
