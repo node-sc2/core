@@ -205,6 +205,8 @@ interface MapResource {
     _graph: any;
     _mapState: SC2APIProtocol.MapState;
     _mapSize: SC2APIProtocol.Size2DI;
+    _ramps: Point3D[];
+    isPlaceable: (point: Point2D) => boolean;
     getCreep: () => Point2D[];
     getGrids: () => Grids;
     getLocations: () => Locations;
@@ -215,6 +217,7 @@ interface MapResource {
     getEnemyNatural: () => Expansion;
     getThirds: () => Expansion[];
     getEnemyThirds: () => Expansion[];
+    getHeight: (point: Point2D) => number;
     getClosestExpansion: (point: Point2D) => Expansion;
     getAvailableExpansions: () => Expansion[];
     getOccupiedExpansions: (alliance?: SC2APIProtocol.Alliance) => Expansion[];
@@ -222,6 +225,7 @@ interface MapResource {
     setGrids: (grids: Grids) => void;
     setGraph: (map: SC2APIProtocol.Size2DI) => void;
     setLocations: (locations: Locations) => void;
+    setRamps: (points: Point3D[]) => void;
     path: (start: Point2D, end: Point2D) => number[][];
     setExpansions: (expansions: Expansion[]) => void;
 }

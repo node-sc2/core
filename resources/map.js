@@ -17,10 +17,12 @@ const createPoint2D = ({x, y}) => ({ x: Math.floor(x), y: Math.floor(y) });
 function createMapManager({ resources }) {
     return {
         _grids: {
+            height: null,
             placement: null,
             pathing: null,
             miniMap: null,
         },
+        _ramps: [],
         _graph: null,
         _locations: {
             self: null,
@@ -35,6 +37,9 @@ function createMapManager({ resources }) {
         _mapSize: {
             x: 0,
             y: 0,
+        },
+        isPlaceable(point) {
+            return !!this._grids.placement[point.y][point.x];
         },
         getMain() {
             return this._expansions[0];
@@ -110,7 +115,9 @@ function createMapManager({ resources }) {
         getLocations() {
             return this._locations;
         },
-        
+        getHeight(point) {
+            return this._grids.height[point.y][point.x];
+        },
         getCombatRally() {
             const { debug } = resources.get();
 
@@ -144,6 +151,9 @@ function createMapManager({ resources }) {
         setExpansions(exps) {
             this._expansions = exps;
             this._expansionsFromEnemy = this._expansions.slice().sort((a, b) => a.pathFromEnemy.length - b.pathFromEnemy.length);
+        },
+        setRamps(ramps) {
+            this._ramps = ramps;
         },
         path(start, end) {
             const graphClone = this._graph.clone();

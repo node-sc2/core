@@ -109,6 +109,18 @@ function updateAreas(world, expansion) {
     };
 }
 
+function calculateRamps(minimap) {
+    return minimap.reduce((acc, row, y) => {
+        row.forEach((tile, x) => {
+            if (tile === 114) {
+                acc = acc.concat([{ x, y }]);
+            }
+        });
+
+        return acc;
+    }, []);
+}
+
 /**
  * 
  * @param {World} world 
@@ -159,6 +171,7 @@ function calculateExpansions(world) {
         debug.setRegions(expansions);
         debug.updateScreen();
     } catch (e) {
+        console.warn(e);
         console.warn('Map is not decomposable! If this is a 1v1 ladder map, please submit a bug report');
     }
 
@@ -187,17 +200,23 @@ const mapSystem = {
     name: 'MapSystem',
     type: 'engine',
     async onGameStart(world) {
-        const { units, frame, map } = world.resources.get();
+        const { units, frame, map, debug } = world.resources.get();
         const { startRaw } = frame.getGameInfo();
 
         map.setLocations({
-            self: units.getAll(Alliance.SELF).find(u => u.isTownhall()).pos,
+            self: units.getAlive(Alliance.SELF).find(u => u.isTownhall()).pos,
             enemy: startRaw.startLocations[0],
         });
 
         map.setGrids(consumeRawGrids(startRaw));
         map.setGraph(startRaw.mapSize);
 
+        map.setRamps(calculateRamps(map._grids.miniMap).map((rPoint) => {
+            return Object.assign(rPoint, { z: map.getHeight(rPoint) });
+        }));
+
+        //debug.setDrawCells('ramps', ramps, null, { size: 1.0 });
+        //debug.updateScreen();
         calculateExpansions(world);
     },
     async onStep({ resources }) {
