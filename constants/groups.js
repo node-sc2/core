@@ -64,6 +64,14 @@ const reactorTypes = [
 ];
 
 /** @type {UnitTypeGroup} */
+const workerTypes = [
+    unitType.DRONE,
+    unitType.PROBE,
+    unitType.SCV,
+    unitType.MULE,
+];
+
+/** @type {UnitTypeGroup} */
 const combatTypes = [
     unitType.BANSHEE,
     unitType.CYCLONE,
@@ -166,5 +174,6 @@ module.exports = {
     returningAbilities,
     techLabTypes,
     townhallTypes,
-    vespeneGeyserTypes
+    vespeneGeyserTypes,
+    workerTypes,
 };
