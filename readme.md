@@ -1,6 +1,27 @@
 # node-sc2
 `node-sc2` is a lightweight node.js framework to facilitate fast development of agents (or "bots") for Starcraft II in JavaScript.
 
+<!-- TOC -->
+
+- [node-sc2](#node-sc2)
+    - [Motivation](#motivation)
+    - [Getting started](#getting-started)
+        - [Hello World](#hello-world)
+    - [Overview and Tutorial](#overview-and-tutorial)
+    - [Notice of Active Development](#notice-of-active-development)
+    - [Contributing](#contributing)
+    - [Ladder and Tournament Submission](#ladder-and-tournament-submission)
+    - [Features and Roadmap](#features-and-roadmap)
+    - [Environmental Variables](#environmental-variables)
+        - [Speed Control](#speed-control)
+        - [Debugging](#debugging)
+    - [Getting Help](#getting-help)
+    - [Changelog](#changelog)
+        - [[0.7.1] - 2018-12-17](#071---2018-12-17)
+        - [[0.7.0] - 2018-12-14](#070---2018-12-14)
+
+<!-- /TOC -->
+
 ### Motivation
 There are a few existing libraries in the node.js ecosystem to work with the C++ API ([sc2client-api](https://github.com/Blizzard/s2client-api)), but `node-sc2` is a pure javascript implementation of [sc2client-proto](https://github.com/Blizzard/s2client-proto), with the goal of being ergonomic across a variety of environments without the need for additional build tools. Under the hood it uses [`@node-sc2/proto`](https://github.com/node-sc2/proto#readme) as the transport layer.
 
@@ -39,7 +60,7 @@ Now you can run it with `node main.js`. Wasn't that easy? Now this isn't going t
 
 **NOTE**: The first time you run the bot, it will take up to 15 seconds to launch the SC2 client. After that, the default behavior is to keep the client running, so starting a new game will take only a moment. Also, feel free to manage the client yourself, as `node-sc2` will just use the existing instance listening on the selected port.
 
-### Overview
+### Overview and Tutorial
 An overview of the library and its usage is available by clicking [here](docs/overview.md). The overview is the recommended place to get started. If you want to skip it and go straight to a tutorial of a bot that can consistently win against the built-in Elite AI, click [here](docs/tutorial.md).
 
 ### Notice of Active Development
@@ -49,7 +70,23 @@ The goal of `@node-sc2/core` is to use semver. As long as `@node-sc2/core` is pr
 *Any* contributions are appreciated. That includes detailed issue reports (with repro if possible), comments, concerns, API design/suggestions, and PRs. I will try to work together with everyone as much as feasible to create the best user experience possible.
 
 ### Ladder and Tournament Submission
-Currently there is no in-place mechanism to submit a bot to any ladder or tournament (such as one that uses the [`Sc2LadderServer`](https://github.com/Cryptyc/Sc2LadderServer)). It is on the major timeline and should be working in multiple capacities by v1.0.0.
+Currently the following method is available as a stop-gap to be able to submit your `node-sc2`-based bot to a tournament or ladder (such as one using software like [`Sc2LadderServer`](https://github.com/Cryptyc/Sc2LadderServer)). 
+
+First install `pkg`, which is what we're going to use to package up your bot: `npm install --save-dev pkg`
+
+Then add the `bin` directive, and this npm script to your `package.json` under `scripts`:
+```js
+"bin": "main.js", // change main.js to your entrypoint file name, if different
+...
+"scripts": {
+    "build": "pkg ./ --target host --out-path ./dist",
+}
+```
+
+Finally, run the script: `npm run build`. Your compiled bot will be in `dist/your-bot-name.exe` and will be compatible with the CLI commands needed to run it using the ladder manager or similar software.
+
+
+In the future, this will be built into `node-sc2` and be a cli command. It is on the major timeline and should be ready by v1.0.0.
 
 ### Features and Roadmap
 This readme will be updated with a link to a Trello board shortly, outlining feature development roadmap progress. On top of that, github issues can be used to discuss features and bugs.
