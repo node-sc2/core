@@ -20,7 +20,7 @@ const execName = parsedPath[parsedPath.length - 1];
 const basePath = parsedPath.slice(0, parsedPath.findIndex(s => s === 'StarCraft II') + 1).join(path.sep);
 
 /** @type {Launcher} */
-async function launcher(options) {
+async function launcher(options = {}) {
     const opts = {
         listen: '127.0.0.1',
         port: 5000,

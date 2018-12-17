@@ -2,9 +2,9 @@
 
 const debugEngine = require('debug')('sc2:debug:engine');
 const debugSilly = require('debug')('sc2:silly:engine');
-const promiseMap = require('promise.map');
+const Promise = require('bluebird');
+const argv = require('yargs').argv;
 const pascalCase = require('pascal-case');
-// const delay = require('delay');
 // const chalk = require('chalk');
 const hrtimeH = require('convert-hrtime');
 const { launcher, findMap } = require('./launcher');
@@ -31,12 +31,20 @@ const NOOP = () => {};
  * @returns {Engine}
  */
 function createEngine(options = {}) {
+    const isManaged = argv.GamePort || argv.StartPort || argv.LadderServer;
+
     const opts = {
         port: 5000,
         host : '127.0.0.1',
         launch: true,
         ...options,
     };
+
+    // the ladder manager is launching this agent and it should override anything else
+    if (isManaged) {
+        opts.port = argv.GamePort;
+        opts.host = argv.LadderServer;
+    }
     
     opts.onGameEnd = opts.onGameEnd || NOOP;
 
@@ -55,7 +63,7 @@ function createEngine(options = {}) {
         },
         systems: [],
         async connect() {
-            if (opts.launch) {
+            if (opts.launch && !isManaged) {
                 await launcher(opts);
             }
 
@@ -91,6 +99,11 @@ function createEngine(options = {}) {
             return this.joinGame(player.agent);
         },
         async createGame(map = '', playerSetup = [], realtime = false) {
+            if (isManaged) {
+                debugEngine(`Engine tried to create a game, but is being managed by a ladder manager - skipping...`);
+                return;
+            }
+
             if (_client.status !== 1 && _client.status !== 5) {
                 console.warn(`cannot create a game unless in "launched" or "ended" status, current status is ${StatusId[_client.status]}`);
                 return;
@@ -135,11 +148,32 @@ function createEngine(options = {}) {
             switch (_client.status) {
                 case 1:
                 case 2: {
-                    const participant = {
+                    /** @type {SC2APIProtocol.RequestJoinGame} */
+                    let participant = {
                         race: agent.settings && agent.settings.race || Race.RANDOM,
                         options: agent.interface,
                         ...options
                     };
+
+                    if (isManaged) {
+                        let sPort = argv.StartPort + 1;
+
+                        participant = {
+                            ...participant,
+                            sharedPort: sPort++,
+                            serverPorts: {
+                                gamePort: sPort++, 
+                                basePort: sPort++,
+                            },
+                            clientPorts: [{
+                                gamePort: sPort++,
+                                basePort: sPort++,
+                            }, {
+                                gamePort: sPort++,
+                                basePort: sPort++,
+                            }]
+                        };
+                    }
 
                     // join the game and subsequently set the playerId for the bot
                     const joinGame = await _client.joinGame(participant);
@@ -151,7 +185,7 @@ function createEngine(options = {}) {
                 }
 
                 case 3: {
-                    console.warn(`cannot create game already in progress, attemping to resync to existing game...`);
+                    console.warn(`cannot join lobby for a game already in progress, attemping to resync to existing game...`);
 
                     /* @FIXME how do we actually negotiate our player id here for resyncing? assuming 1 for debugging... */
                     agent.playerId = 1;
@@ -262,7 +296,7 @@ function createEngine(options = {}) {
              * the updated frame data.
              */
             const engineSystems = this.systems;
-            await promiseMap(engineSystems, system => system(world), 1); // concurrency: 1
+            await Promise.mapSeries(engineSystems, system => system(world)); // concurrency: 1
             
             /**
              * Next let the agent itself consume events -
@@ -304,7 +338,7 @@ function createEngine(options = {}) {
              * by other systems that frame.
              */
             const { agent: { systems } } = world;
-            return promiseMap(systems, system => system(world));
+            return Promise.map(systems, system => system(world));
         },
         lastRequest: null,
     };
