@@ -146,6 +146,7 @@ const Ability = {
     EFFECT_CAUSTICSPRAY: 2324,  // Target: Unit.
     EFFECT_CHARGE: 1819,  // Target: Unit.
     EFFECT_CHRONOBOOST: 261,   // Target: Unit.
+    EFFECT_CHRONOBOOSTENERGYCOST: 3755,
     EFFECT_CONTAMINATE: 1825,  // Target: Unit.
     EFFECT_CORROSIVEBILE: 2338,  // Target: Point.
     EFFECT_EMP: 1628,  // Target: Point.
