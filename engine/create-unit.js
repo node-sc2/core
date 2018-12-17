@@ -1,7 +1,7 @@
 'use strict';
 
 const { Alliance } = require('../constants/enums');
-const { techLabTypes, reactorTypes } = require('../constants/groups');
+const { techLabTypes, reactorTypes, workerTypes } = require('../constants/groups');
 const { townhallTypes } = require('../constants/groups');
 const { GasMineRace, WorkerRace } = require('../constants/race-map');
 
@@ -24,11 +24,9 @@ function createUnit(unitData, { agent, resources }) {
         isTownhall() {
             return townhallTypes.includes(this.unitType);
         },
-
         isWorker() {
-            return WorkerRace[agent.race] === this.unitType;
+            return workerTypes.includes(this.unitType);
         },
-
         isGasMine() {
             return GasMineRace[agent.race] === this.unitType;
         },
