@@ -101,7 +101,9 @@ function createActionManager(world) {
                     return res;
                 });
         },
-        async attack(units, unit, queue = false) {
+        async attack(us, unit, queue = false) {
+            const units = Array.isArray(us) ? us : [us];
+
             return this.sendAction({
                 abilityId: Ability.ATTACK_ATTACK,
                 targetUnitTag: unit.tag,
@@ -110,9 +112,10 @@ function createActionManager(world) {
             });
         },
         async attackMove(u, p, queue = false) {
-            const { units, map } = world.resources.get();
+            const us = Array.isArray(u) ? u : [u];
+            const { map } = world.resources.get();
 
-            const moveUnits = u || units.getCombatUnits();
+            const moveUnits = us;
             const position = p || map.getLocations().enemy;
 
             return this.sendAction({
