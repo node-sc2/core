@@ -181,6 +181,7 @@ function builderPlugin(system) {
             const placements = [...main.areas.placementGrid, ...natural.areas.placementGrid]
                 .filter((point) => {
                     return (
+                        (distance(natural.townhallPosition, point) > 4) &&
                         (pylonsNearProduction.some(p => distance(p.pos, point) < 6.5)) &&
                         (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
                         (units.getStructures({ alliance: Alliance.SELF })
