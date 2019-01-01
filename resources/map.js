@@ -1,9 +1,16 @@
 'use strict';
 
 const PF = require('pathfinding');
-const { consumeImageData } = require('../utils/map/grid');
-const { Alliance } = require('../constants/enums');
+const { enums: { Alliance } } = require('../constants');
 const { distance } = require('../utils/geometry/point');
+const { avgPoints,closestPoint } = require('../utils/geometry/point');
+const { gridsInCircle } = require('../utils/geometry/angle');
+const { cellsInFootprint } = require('../utils/geometry/plane');
+const { gasMineTypes } = require('../constants/groups');
+const { getFootprint } = require('../utils/geometry/units');
+
+let combatRally;
+const determinedPaths = [];
 
 /**
  * @param {Point2D} param0 
@@ -14,8 +21,9 @@ const createPoint2D = ({x, y}) => ({ x: Math.floor(x), y: Math.floor(y) });
  * @param {World} world
  * @returns {MapResource}
  */
-function createMapManager({ resources }) {
+function createMapManager(world) {
     return {
+        _activeEffects: [],
         _grids: {
             height: null,
             placement: null,
@@ -38,8 +46,45 @@ function createMapManager({ resources }) {
             x: 0,
             y: 0,
         },
-        isPlaceable(point) {
+        isCustom() {
+            return this._expansions.length <= 0;
+        },
+        isPathable(p) {
+            const point = createPoint2D(p);
+            return !(this._grids.pathing[point.y][point.x]);
+        },
+        setPathable(p, pathable = true) {
+            const point = createPoint2D(p);
+            this._grids.pathing[point.y][point.x] = pathable ? 0 : 1;
+        },
+        isPlaceable(p) {
+            const point = createPoint2D(p);
             return !!this._grids.placement[point.y][point.x];
+        },
+        setPlaceable(p, placeable = true) {
+            const point = createPoint2D(p);
+            this._grids.placement[point.y][point.x] = placeable ? 1 : 0;
+        },
+        isVisible(p) {
+            const point = createPoint2D(p);
+            return !!this._mapState.visibility[point.y][point.x];
+        },
+        hasCreep(p) {
+            const point = createPoint2D(p);
+            return !!this._mapState.creep[point.y][point.x];
+        },
+        freeGasGeysers() {
+            const { units } = world.resources.get();
+
+            // @TODO: put this somewhere useful
+            const geyserHasMine = (geyser) => {
+                const gasMines = units.getByType(gasMineTypes);
+                return gasMines.find(mine => distance(geyser.pos, mine.pos) < 1);
+            };
+
+            return units.getGasGeysers()
+                .filter(g => units.getBases().some(b => distance(b.pos, g.pos) < 15))
+                .filter(g => !geyserHasMine(g));
         },
         getMain() {
             return this._expansions[0];
@@ -66,12 +111,12 @@ function createMapManager({ resources }) {
                 return this._expansions;
             }
         },
-        getOccupiedExpansions(alliance) {
+        getOccupiedExpansions(alliance = Alliance.SELF) {
             return this._expansions.filter((expansion) => {
                 return (
                     expansion.base &&
                     !expansion.getBase().labels.has('dead') &&
-                    (alliance ? expansion.getBase().alliance === alliance : true)
+                    (expansion.getBase().alliance === alliance)
                 );
             });
         },
@@ -97,7 +142,7 @@ function createMapManager({ resources }) {
             return expansionOrder[closestIndex];
         },
         getCreep() {
-            const creepRaw = consumeImageData(this._mapState.creep, this._mapSize.x);
+            const creepRaw = this._mapState.creep;
 
             return creepRaw.reduce((acc, row, y) => {
                 row.forEach((pixel, x) => { 
@@ -109,32 +154,54 @@ function createMapManager({ resources }) {
                 return acc;
             }, []);
         },
+        getEffects() {
+            return this._activeEffects;
+        },
         getGrids() {
             return this._grids;
         },
         getLocations() {
             return this._locations;
         },
-        getHeight(point) {
-            return this._grids.height[point.y][point.x];
+        getHeight(p) {
+            const point = createPoint2D(p);
+            return this._grids.height[point.y][point.x] / 10;
         },
         getCombatRally() {
-            const { debug } = resources.get();
+            const numOfBases = this.getOccupiedExpansions().length;
+            if (combatRally && combatRally.numOfBases === numOfBases ) return combatRally.pos;
 
-            const natural = this.getNatural().townhallPosition;
-            const enemyNat = this.getEnemyNatural().townhallPosition;
+            const mapCenter = {
+                x: this._mapSize.x / 2,
+                y: this._mapSize.y / 2,
+            };
 
-            const pathBetweenNaturals = this.path(natural, enemyNat);
+            const pathableNearCenter = gridsInCircle(mapCenter, 5, { normalize: true })
+                .filter(p => this.isPathable(p));
+            const closestPathable = closestPoint(mapCenter, pathableNearCenter);
 
-            // 10% of the way between agent nat and enemy
-            const newPos = pathBetweenNaturals[Math.floor(pathBetweenNaturals.length / 10)];
-            const newPoint =  { x: newPos[0], y: newPos[1] };
+            const naturalWall = this.getNatural().getWall();
+            const avg = avgPoints(naturalWall);
+            const pathableNearNat = gridsInCircle(avg, 5, { normalize: true })
+                .filter(p => this.isPathable(p));
+            const closestNatPathable = closestPoint(avg, pathableNearNat);
 
-            // debug.setDrawCells('armyRally', [newPoint], this._expansions[1].zPosition);
-            // debug.setDrawTextWorld('rallyLabel', [{ pos: newPoint, text: 'COMBAT RALLY', color: WHITE}], this._expansions[1].zPosition);
-            // debug.updateScreen();
+            const path = this.path(closestNatPathable, closestPathable);
 
-            return newPoint;
+            // n% of the way between fon and map center
+            const multiplier = numOfBases * 0.05;
+            const newPos = path[Math.floor(path.length * multiplier)];
+            combatRally = {
+                numOfBases,
+                pos: { x: newPos[0], y: newPos[1] },
+            };
+            return combatRally.pos;
+        },
+        setActiveEffects(newEffects = []) {
+            this._activeEffects = newEffects;
+        },
+        setMapState(newMapState){
+            this._mapState = newMapState;
         },
         setLocations(locations) {
             this._locations = { ...this._locations, ...locations };
@@ -143,10 +210,94 @@ function createMapManager({ resources }) {
             // merging allows to update partial grids, or individual
             this._grids = { ...this._grids, ...newGrids };
         },
-        setGraph(map) {
-            this._mapSize = map;
-        
-            this._graph = new PF.Grid(map.x, map.y, this._grids.pathing);
+        setSize(mapSize) {
+            this._mapSize = mapSize;
+        },
+        getSize() {
+            return this._mapSize;
+        },
+        getCenter(pathable = false) {
+            const absoluteCenter =  {
+                x: this._mapSize.x / 2,
+                y: this._mapSize.y / 2,
+            };
+
+            if (pathable) {
+                const pathableSurroundingGrid = gridsInCircle(absoluteCenter, 5, { normalize: true })
+                    .filter(cell => this.isPathable(cell));
+
+                return closestPoint(absoluteCenter, pathableSurroundingGrid);
+            } else {
+                return absoluteCenter;
+            }
+        },
+        newGraph(grid) {
+            return new PF.Grid(this._mapSize.x, this._mapSize.y, grid);
+        },
+        getGraph() {
+            return this._graph.clone();
+        },
+        setGraph(graph) {
+            if (graph) {
+                this._graph = graph;
+            } else {
+                const newGraph = new PF.Grid(this._mapSize.x, this._mapSize.y, this._grids.pathing);
+                newGraph.nodes.forEach((row) => {
+                    row.forEach((node) => {
+                        const nonWalkableNeighbors = 8 - newGraph.getNeighbors(node, 1).length;
+                        switch (nonWalkableNeighbors) {
+                            case 1: {
+                                node.weight = 2;
+                                break;
+                            }
+                            case 2: {
+                                node.weight = 3;
+                                break;
+                            }
+                            case 3: {
+                                node.weight = 4;
+                                break;
+                            }
+                            case 4: {
+                                node.weight = 5;
+                                break;
+                            }
+                            case 5: {
+                                node.weight = 6;
+                                break;
+                            }
+                            case 6: {
+                                node.weight = 7;
+                                break;
+                            }
+                            case 7: {
+                                node.weight = 8;
+                                break;
+                            }
+                            case 8: {
+                                node.weight = 9;
+                                break;
+                            }
+                        }
+                    });
+                });
+
+                // world.resources.get().debug.setDrawCells('weights', newGraph.nodes.reduce((cells, row, y) => {
+                //     row.forEach((node, x) => {
+                //         if (node.walkable && node.weight > 1) {
+                //             cells.push({
+                //                 pos: {x, y},
+                //                 text: `W: ${node.weight}`,
+                //                 color: node.weight <= 1 ? Color.LIME_GREEN : node.weight <= 5 ? Color.YELLOW : node.weight <= 20? Color.ORANGE_RED : Color.RED,
+                //             });
+                //         }
+                //     });
+
+                //     return cells;
+                // }, []));
+
+                this._graph = newGraph;
+            }
         },
         setExpansions(exps) {
             this._expansions = exps;
@@ -155,18 +306,35 @@ function createMapManager({ resources }) {
         setRamps(ramps) {
             this._ramps = ramps;
         },
-        path(start, end) {
-            const graphClone = this._graph.clone();
+        isPlaceableAt(unitType, pos) {
+            const footprint = getFootprint(unitType);
+            const shapePoints = cellsInFootprint(pos, footprint);
 
-            const finder = new PF.AStarFinder({
-                allowDiagonal: true,
-                heuristic: PF.Heuristic.mahattan,
-            });
-
+            return shapePoints.every(point => this.isPlaceable(point));
+        },
+        path(start, end, opts = {}) {
             const begin = createPoint2D(start);
             const finish = createPoint2D(end);
 
+            const exists = determinedPaths.find(path => (
+                path.begin.x === begin.x &&
+                path.begin.y === begin.y &&
+                path.finish.x === finish.x &&
+                path.finish.y === finish.y
+            ));
+
+            if (exists) return exists.result;
+
+            const graphClone = opts.graph ? opts.graph.clone() : this._graph.clone();
+
+            const finder = new PF.AStarFinder({
+                allowDiagonal: opts.diagonal !== undefined ? opts.diagonal : true,
+                //heuristic: PF.Heuristic.euclidien,
+                heuristic: PF.Heuristic.mahattan,
+            });
+
             const result = finder.findPath(begin.x, begin.y, finish.x, finish.y, graphClone);
+            determinedPaths.push({ begin, finish, result });
 
             return result;
         },
