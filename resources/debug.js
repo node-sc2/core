@@ -1,9 +1,9 @@
 "use strict";
 
 // eslint-disable-next-line
-const colors = require('../constants/color');
-const { WHITE, RED, GREEN, YELLOW, BLUE, TEAL, PURPLE, BLACK, GRAY } = colors;
+const Color = require('../constants/color');
 const getRandom = require('../utils/get-random');
+const { add, createPoint2D } = require('../utils/geometry/point');
 
 /**
  * @param {World} world
@@ -12,30 +12,37 @@ const getRandom = require('../utils/get-random');
 function createDebugger(world) {
     /** @type {{ [key: string]: SC2APIProtocol.DebugCommand[] }} */
     let commands = {};
+    let tempCommands = {};
 
     return {
+        touched: false,
         updateScreen() {
             const { actions: { _client } } = world.resources.get();
 
-            if (process.env.DEBUG) {
-                const debugCommands = Object.values(commands).reduce((commands, command) => {
-                    return commands.concat(command);
-                }, []);
-                return _client.debug({ debug: debugCommands });
-            }
+            const debugCommands = Object.values(commands).reduce((commands, command) => {
+                return commands.concat(command);
+            }, []);
 
-            return _client.debug({ debug: [] });
+            const debugTempCommands = Object.values(tempCommands).reduce((commands, command) => {
+                return commands.concat(command);
+            }, []);
+
+            tempCommands = {};
+            return _client.debug({ debug: debugCommands.concat(debugTempCommands) });
         },
         removeCommand(id) {
-            const { [id]: ignored, ...commandsToKeep } = commands;
+            this.touched = true;
+            const textId = `${id}-text-0`;
+            const { [id]: ignored, [textId]: ignored2, ...commandsToKeep } = commands;
             commands = commandsToKeep;
         },
         setRegions(expansions) {
+            this.touched = true;
             commands.regions = expansions.map((expansion) => ({
                 draw: {
                     text: expansions.map((expansion, i) => {
                         return {
-                            color: RED,
+                            color: Color.RED,
                             text: `DISTANCE ORDER ${i} \n COORDS ${JSON.stringify(expansion.townhallPosition)}`,
                             worldPos: { ...expansion.townhallPosition, z: expansion.zPosition + 3 },
                         };
@@ -43,28 +50,28 @@ function createDebugger(world) {
                     boxes: [
                         ...expansion.areas.mineralLine.map((point) => {
                             return {
-                                color: GREEN,
+                                color: Color.GREEN,
                                 min: { x: point.x + 0.25, y: point.y + 0.25 , z: expansion.zPosition },
                                 max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.03 },
                             };
                         }),
                         ...expansion.areas.behindMineralLine.map((point) => {
                             return {
-                                color: RED,
+                                color: Color.RED,
                                 min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
                                 max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.02 },
                             };
                         }),
                         ...expansion.areas.areaFill.map((point) => {
                             return {
-                                color: BLACK,
+                                color: Color.BLACK,
                                 min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
                                 max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.01 },
                             };
                         }),
                         ...expansion.areas.hull.map((point) => {
                             return {
-                                color: YELLOW,
+                                color: Color.YELLOW,
                                 min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
                                 max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.04 },
                             };
@@ -72,12 +79,12 @@ function createDebugger(world) {
                     ],
                     spheres: [
                         {
-                            color: PURPLE,
+                            color: Color.PURPLE,
                             p: { ...expansion.townhallPosition, z: expansion.zPosition + 0.1 },
                             r: 2.75,
                         },
                         {
-                            color: GREEN,
+                            color: Color.GREEN,
                             p: { ...expansion.centroid, z: expansion.zPosition + 0.1 },
                             r: 1,
                         },
@@ -85,56 +92,141 @@ function createDebugger(world) {
                 }
             }));
         },
-        setDrawCells(id, cPoints, zPos, opts = {}) {
-            const color = opts.color || getRandom(Object.values(colors));
-            if (cPoints.length > 0) {
+        setDrawLines(id, wLines, opts = {}) {
+            this.touched = true;
+            const defaultColor = opts.color || getRandom(Object.values(Color));
+            const skipText = opts.includeText !== undefined && !opts.includeText;
+            if (wLines.length > 0) {
                 commands[id] = [{
                     draw: {
-                        boxes: cPoints.map((cPoint) => {
-                            const zpos = zPos || cPoint.z;
+                        lines: wLines.map((wLine, i) => {
+                            const { p0, p1 } = wLine;
+                            p0.z = (opts.zPos || p0.z || world.resources.get().map.getHeight(p0)) + 0.01;
+                            p1.z = (opts.zPos || p1.z || world.resources.get().map.getHeight(p1)) + 0.01;
+
+                            if (!skipText) {
+                                this.setDrawTextWorld(`${id}-text-${i}`, [{
+                                    color: wLine.color || defaultColor,
+                                    text: `${id}-${i}`,
+                                    pos: {
+                                        x: ((p0.x + p1.x) / 2) - 0.5,
+                                        y: ((p0.y + p1.y) / 2) + 0.5 ,
+                                    },
+                                }]);
+                            }
+
+                            return {
+                                color: wLine.color || defaultColor,
+                                line: { p0, p1 },
+                            };
+                        })
+                    }
+                }];
+            }
+        },
+        setDrawCells(id, cells, opts = {}) {
+            this.touched = true;
+            const skipText = opts.includeText !== undefined && !opts.includeText;
+            const defaultColor = opts.color || getRandom(Object.values(Color));
+            if (cells.length > 0) {
+                commands[id] = [{
+                    draw: {
+                        boxes: cells.map((cell, i) => {
+                            const { pos } = cell;
+
+                            const color = cell.color || defaultColor;
+                            const size = 1 - (cell.size || opts.size || 0.8);
+                            const zPos = opts.zPos || pos.z || world.resources.get().map.getHeight(createPoint2D(pos));
+                            const height = opts.height ? opts.height : opts.cube ? 1 - size : 0.02;
+
+                            if (!skipText) {
+                                this.setDrawTextWorld(`${id}-text-${i}`, [{
+                                    pos,
+                                    color,
+                                    text: cell.text ? `${cell.text}` : `${id}-${i}`,
+                                }], {
+                                    temp: opts.persistText ? false : true,
+                                });
+                            }
+
                             return {
                                 color,
-                                min: { x: cPoint.x + 0.25, y: cPoint.y + 0.25, z: zpos },
-                                max: { x: cPoint.x + 0.75, y: cPoint.y + 0.75, z: zpos + (opts.size || 0.5) },
+                                min: { x: pos.x + (size / 2), y: pos.y + (size / 2), z: zPos },
+                                max: { x: pos.x + (1 - (size / 2)), y: pos.y + (1 - (size / 2)), z: zPos + height },
                             };
                         })
                     }
                 }];
             }
         },
-        setDrawSpheres(id, cPoints, zPos, color) {
-            if (cPoints.length > 0) {
-                commands[id] = [{
+        setDrawSpheres(id, spheres, opts = {}) {
+            this.touched = true;
+            const skipText = opts.includeText !== undefined && !opts.includeText;
+            const setter = opts.temp ? tempCommands : commands;
+            if (spheres.length > 0) {
+                setter[id] = [{
                     draw: {
-                        spheres: cPoints.map((cPoint) => {
-                            return {
-                                color: color || YELLOW,
-                                p: { x: cPoint.x + 0.25, y: cPoint.y + 0.75, z: cPoint.z || zPos },
-                                r: 0.5,
-                            };
-                        })
-                    }
-                }];
-            }
+                        spheres: spheres.map((wSphere, i) => {
+                            const { pos } = wSphere;
+                            const zPos = opts.zPos || pos.z || world.resources.get().map.getHeight(wSphere.pos);
 
-        },
-        setDrawTextWorld(id, wPoints, zpos) {
-            if (wPoints.length > 0) {
-                commands[id] = [{
-                    draw: {
-                        text: wPoints.map((wPoint) => {
+                            if(!skipText) {
+                                this.setDrawTextWorld(`${id}-text-${i}`, [{
+                                    pos: add(pos, 0.25),
+                                    text: wSphere.text ? `${wSphere.text}` : `${id}-${i}`,
+                                }],{
+                                    temp: opts.persistText ? false : true,
+                                });
+                            }
+                            
                             return {
-                                color: WHITE,
-                                text: wPoint.text,
-                                worldPos: { ...wPoint.pos, z: zpos },
+                                color: wSphere.color || opts.color || getRandom(Object.values(Color)),
+                                p: { x: pos.x, y: pos.y, z: zPos + 0.01 },
+                                r: wSphere.size || opts.size || 0.5,
+                            };
+                        })
+                    }
+                }];
+            }
+        },
+        setDrawTextWorld(id, texts, opts = {}) {
+            this.touched = true;
+            const setter = opts.temp ? tempCommands : commands;
+            if (texts.length > 0) {
+                setter[id] = [{
+                    draw: {
+                        text: texts.map((wText) => {
+                            const color = wText.color || Color.WHITE;
+                            const zPos = opts.zPos || wText.pos.z || world.resources.get().map.getHeight(createPoint2D(wText.pos));
+                            return {
+                                color,
+                                size: opts.size,
+                                text: wText.text,
+                                worldPos: { ...wText.pos, z: zPos },
                             };
                         }),
                     }
                 }];
             }
         },
-        setDrawTextScreen() {
-
+        setDrawTextScreen(id, texts, opts = {}) {
+            this.touched = true;
+            if (texts.length > 0) {
+                commands[id] = [{
+                    draw: {
+                        text: texts.map((vText) => {
+                            const color = vText.color || opts.color || Color.FIREBRICK;
+                            const zPos = opts.zPos || vText.pos.z;
+                            return {
+                                color,
+                                size: vText.size || opts.size || 8,
+                                text: vText.text,
+                                virtualPos: { ...vText.pos, z: zPos || undefined },
+                            };
+                        }),
+                    }
+                }];
+            }
         },
     };
 }
