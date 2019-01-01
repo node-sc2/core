@@ -15,12 +15,20 @@ function createAgent(blueprint = {}) {
     return {
         ...blueprint,
         _world: null,
+        inGame: false,
         systems: [],
         use(sys) {
+            const addSys = s => {
+                this.systems.push(s);
+                if (this.inGame) {
+                    s.setup(this._world, true);
+                }
+            };
+
             if (Array.isArray(sys)) {
-                sys.forEach(s => this.systems.push(s));
+                sys.forEach(s => addSys(s));
             } else {
-                this.systems.push(sys);
+                addSys(sys);
             }
         },
         settings: {
@@ -34,7 +42,6 @@ function createAgent(blueprint = {}) {
             const { minerals, vespene } = this;
 
             const earmarks = data.getEarmarkTotals(earmarkName);
-            
             const unitType = data.getUnitTypeData(unitTypeId);
             
             const result = (
@@ -51,16 +58,43 @@ function createAgent(blueprint = {}) {
                 return false;
             }
         },
-        canAffordUpgrade(upgradeId) {
+        canAffordN(unitTypeId, maxN = 1) {
             const { data } = this._world;
-
             const { minerals, vespene } = this;
+
+            const unitType = data.getUnitTypeData(unitTypeId);
+            
+            const checkResult = (n) => (
+                (minerals >= (unitType.mineralCost * n)) &&
+                (unitType.vespeneCost ? vespene >= (unitType.vespeneCost * n) : true)
+            );
+
+            for (let i = maxN; i > 0; i -= 1) {
+                if (checkResult(i)) return i;
+            }
+
+            return 0;
+        },
+        canAffordUpgrade(upgradeId, earmarkName) {
+            const { data } = this._world;
+            const { minerals, vespene } = this;
+
+            const earmarks = data.getEarmarkTotals(earmarkName);
             const upgrade = data.getUpgradeData(upgradeId);
 
-            return (
-                (minerals >= upgrade.mineralCost) &&
-                (upgrade.vespeneCost ? vespene >= upgrade.vespeneCost : true)
+            const result = (
+                (minerals - earmarks.minerals >= upgrade.mineralCost) &&
+                (upgrade.vespeneCost ? vespene - earmarks.vespene >= upgrade.vespeneCost : true)
             );
+
+            if (result) {
+                if (earmarkName) {
+                    data.settleEarmark(earmarkName);
+                }
+                return true;
+            } else {
+                return false;
+            }
         },
         hasTechFor(unitTypeId) {
             const { data, resources } = this._world;
@@ -123,23 +157,38 @@ function createAgent(blueprint = {}) {
             return blueprint.onStep ? blueprint.onStep(world) : NOOP;
         },
         async onGameStart(world) {
+            this.inGame = true;
+
             const { frame } = world.resources.get();
 
             const gameInfo = frame.getGameInfo();
 
             const thisPlayer = gameInfo.playerInfo.find(player => player.playerId === this.playerId);
             const enemyPlayer = gameInfo.playerInfo.find(player => player.playerId !== this.playerId);
-            this.race = thisPlayer.raceActual;
 
-            /** 
-             * if the enemy requested random, we don't know their race yet - otherwise set it to their raceRequested 
-             * 
-             * @TODO: the first time we see an enemy unit, we should set the value of this on the agent and then 
-             * memoize it
+            /**
+             * this can only really happen while reconnecting to a game where your playerId wasn't 1..
+             * unsure what the solution should be here...
              */
-            this.enemy = {
-                race: enemyPlayer.raceRequested !== Race.RANDOM ? enemyPlayer.raceRequested : Race.NORACE,
-            };
+            if (thisPlayer) {
+                this.race = thisPlayer.raceActual;
+            }
+
+            /**
+             * this can only really happen in a custom or test map where playerid's aren't handled
+             * in any reasonable way... if we're here then assume none of this makes sense anyway.
+             */ 
+            if (enemyPlayer) {
+                /** 
+                 * if the enemy requested random, we don't know their race yet - otherwise set it to their raceRequested 
+                 * 
+                 * @TODO: the first time we see an enemy unit, we should set the value of this on the agent and then 
+                 * memoize it
+                 */
+                this.enemy = {
+                    race: enemyPlayer.raceRequested !== Race.RANDOM ? enemyPlayer.raceRequested : Race.NORACE,
+                };
+            }
 
             return blueprint.onGameStart ? blueprint.onGameStart(world) : NOOP;
         }
