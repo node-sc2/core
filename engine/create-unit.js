@@ -1,9 +1,10 @@
 'use strict';
 
-const { Alliance } = require('../constants/enums');
-const { techLabTypes, reactorTypes, workerTypes } = require('../constants/groups');
-const { townhallTypes } = require('../constants/groups');
-const { GasMineRace, WorkerRace } = require('../constants/race-map');
+const UnitType = require('../constants/unit-type');
+const Ability = require('../constants/ability');
+const { Alliance, WeaponTargetType, Attribute } = require('../constants/enums');
+const { techLabTypes, reactorTypes, workerTypes, gasMineTypes, combatTypes } = require('../constants/groups');
+const { townhallTypes, constructionAbilities } = require('../constants/groups');
 
 /**
  * Unit factory - exclusively for UnitManager use
@@ -11,16 +12,74 @@ const { GasMineRace, WorkerRace } = require('../constants/race-map');
  * @param {World} world 
  * @returns {Unit}
  */
-function createUnit(unitData, { agent, resources }) {
-    const { frame, units } = resources.get();
+function createUnit(unitData, { data, resources }) {
+    const { frame, units, actions } = resources.get();
 
     const { alliance } = unitData;
 
     const blueprint = {
         tag: unitData.tag,
-        labels: new Map(),
         lastSeen: frame.getGameLoop(),
         noQueue: unitData.orders.length === 0,
+        labels: new Map(),
+        _availableAbilities: [],
+        async burrow() {
+            if (this.is(UnitType.WIDOWMINE)) {
+                return actions.do(Ability.BURROWDOWN, this.tag);
+            }
+        },
+        async toggle(options = {}) {
+            const opts = {
+                queue: true,
+                ...options,
+            };
+
+            if (this.is(UnitType.WARPPRISM)) {
+                return actions.do(Ability.MORPH_WARPPRISMPHASINGMODE, this.tag, opts);
+            } else if (this.is(UnitType.WARPPRISMPHASING)) {
+                return actions.do(Ability.MORPH_WARPPRISMTRANSPORTMODE, this.tag, opts);
+            } else if (this.is(UnitType.LIBERATOR)) {
+                return actions.do(Ability.MORPH_LIBERATORAGMODE, this.tag, opts);
+            } else if (this.is(UnitType.LIBERATORAG)) {
+                return actions.do(Ability.MORPH_LIBERATORAAMODE, this.tag, opts);
+            }
+        },
+        addLabel(name, value) {
+            return this.labels.set(name, value);
+        },
+        hasLabel(name) {
+            return this.labels.has(name);
+        },
+        removeLabel(name) {
+            return this.labels.delete(name);
+        },
+        getLabel(name) {
+            return this.labels.get(name);
+        },
+        abilityAvailable(id) {
+            return this._availableAbilities.includes(id);
+        },
+        availableAbilities() {
+            return this._availableAbilities;
+        },
+        data() {
+            return data.getUnitTypeData(this.unitType);
+        },
+        is(type) {
+            return this.unitType === type;
+        },
+        isConstructing() {
+            return this.orders.some(o => constructionAbilities.includes(o.abilityId));
+        },
+        isCombatUnit() {
+            return combatTypes.includes(this.unitType);
+        },
+        isFinished() {
+            return this.buildProgress >= 1;
+        },
+        isHolding() {
+            return this.orders.some(o => o.abilityId === Ability.HOLDPOSITION);
+        },
         isTownhall() {
             return townhallTypes.includes(this.unitType);
         },
@@ -28,11 +87,14 @@ function createUnit(unitData, { agent, resources }) {
             return workerTypes.includes(this.unitType);
         },
         isGasMine() {
-            return GasMineRace[agent.race] === this.unitType;
+            return gasMineTypes.includes(this.unitType);
         },
         isCurrent() {
             // if this unit wasn't updated this frame, this will be false
             return this.lastSeen === frame.getGameLoop();
+        },
+        isStructure() {
+            return data.getUnitTypeData(this.unitType).attributes.includes(Attribute.STRUCTURE);
         },
         hasReactor() {
             const addon = units.getByTag(this.addOnTag);
@@ -41,6 +103,12 @@ function createUnit(unitData, { agent, resources }) {
         hasTechLab() {
             const addon = units.getByTag(this.addOnTag);
             return techLabTypes.includes(addon.unitType);
+        },
+        canMove() {
+            return this._availableAbilities.includes(Ability.MOVE);
+        },
+        canShootUp() {
+            return data.getUnitTypeData(unitData.unitType).weapons.some(w => w.type !== WeaponTargetType.GROUND);
         },
         update(unit) {
             Object.assign(this, unit, {

@@ -34,7 +34,7 @@ const unitSystem = {
      * an untenable perf hit. 
      */
     async onStep(world) {
-        const { events, units, frame } = world.resources.get();
+        const { events, units, frame, actions } = world.resources.get();
 
         const { rawData: { units: rawUnits } } = frame.getObservation();
 
@@ -75,6 +75,18 @@ const unitSystem = {
         };
 
         /**
+         * Test for unit exiting a skirmish
+         * @param {SC2APIProtocol.Unit} incData
+         * @param {Unit} currentUnit
+         */
+        const hasDisengaged = (incData, currentUnit) => {
+            return (
+                currentUnit.engagedTargetTag !== '0' &&
+                incData.engagedTargetTag === '0'
+            );
+        };
+
+        /**
          * Test for unit switching targets
          * @param {SC2APIProtocol.Unit} incData
          * @param {Unit} currentUnit
@@ -109,6 +121,14 @@ const unitSystem = {
                 if (hasEngaged(unitData, currentUnit)) {
                     events.write({
                         name: "unitHasEngaged",
+                        data: currentUnit,
+                        type: 'all',
+                    });
+                }
+
+                if (hasDisengaged(unitData, currentUnit)) {
+                    events.write({
+                        name: "unitHasDisengaged",
                         data: currentUnit,
                         type: 'all',
                     });
@@ -155,6 +175,19 @@ const unitSystem = {
 
                 units._units[unitData.alliance].set(unitData.tag, newUnit);
             }
+        });
+
+        const ownUnitTags = Array.from(units._units[Alliance.SELF].keys());
+        return actions.sendQuery({
+            abilities: ownUnitTags.map(tag => ({
+                unitTag: tag,
+            })),
+        }).then((res) => {
+            res.abilities.forEach((abilObj) => {
+                const unit = units._units[Alliance.SELF].get(abilObj.unitTag);
+                unit._availableAbilities = abilObj.abilities.map(a => a.abilityId);
+                units._units[Alliance.SELF].set(abilObj.unitTag, unit);
+            });
         });
     },
 };
