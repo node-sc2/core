@@ -9,8 +9,18 @@ const api = require('@node-sc2/proto/root');
  */
 const BuildOrder = {
     NOT_STARTED: 0,
-    IN_PROGRESS: 1,
-    COMPLETE: 2,
+    COMMAND_GIVEN: 1,
+    IN_PROGRESS: 2,
+    COMPLETE: 3,
+    SKIPPED: 4,
+};
+
+const BuildOrderId = {
+    0: 'NOT_STARTED',
+    1: 'COMMAND_GIVEN',
+    2: 'IN_PROGRESS',
+    3: 'COMPLETE',
+    4: 'SKIPPED',
 };
 
 /**
@@ -18,8 +28,10 @@ const BuildOrder = {
  */
 const BuildResult = {
     SUCCESS: 0,
-    CANNOT_SATISFY: 1,
-    ERROR: 2,
+    COMMAND_SENT: 1,
+    CANNOT_SATISFY: 2,
+    ERROR: 3,
+    SKIPPED: 4,
 };
 
 /**
@@ -150,7 +162,33 @@ const Status = {
 
 const { valuesById: StatusId } = api.lookupEnum('Status');
 
+/**
+ * @enum {SC2APIProtocol.Weapon_TargetType}
+ */
+const WeaponTargetType = {
+    GROUND: 1,
+    AIR: 2,
+    ANY: 3,
+};
+
+const { valuesById: WeaponTargetTypeId } = api.lookupEnum('TargetType');
+
+/**
+ * @enum {SC2APIProtocol.AbilityData_Target}
+ */
+const AbilityDataTarget = {
+    NONE: 1,
+    POINT: 2,
+    UNIT: 3,
+    POINTORUNIT: 4,
+    POINTORNONE: 5,
+};
+
+const { valuesById: AbilityDataTargetId } = api.lookupType('AbilityData').lookupEnum('Target');
+
 module.exports = {
+    AbilityDataTarget,
+    AbilityDataTargetId,
     Alert,
     AlertId,
     Alliance,
@@ -158,6 +196,7 @@ module.exports = {
     Attribute,
     AttributeId,
     BuildOrder,
+    BuildOrderId,
     BuildResult,
     Difficulty,
     DifficultyId,
@@ -171,4 +210,6 @@ module.exports = {
     RaceId,
     Status,
     StatusId,
+    WeaponTargetType,
+    WeaponTargetTypeId,
 };
