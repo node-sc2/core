@@ -18,12 +18,18 @@ function createFrame() {
         getGameLoop() {
             return this._gameLoop;
         },
+        getEffects() {
+            return this._observation.rawData.effects;
+        },
         getMapState() {
             return this._observation.rawData.mapState;
         },
         getPrevious() {
             return this._previous;
-        }
+        },
+        timeInSeconds() {
+            return Math.round(this.getGameLoop() * 44 / 1000);
+        },
     };
 
 }
