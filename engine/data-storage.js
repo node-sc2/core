@@ -37,6 +37,9 @@ function createDataManager() {
         getAbilityData(abilityId) {
             return this.get('abilities')[abilityId];
         },
+        getEffectData(effectId) {
+            return this.get('effects')[effectId];
+        },
         mineralCost(unitTypeId) {
             return this.getUnitTypeData(unitTypeId).mineralCost;
         },
@@ -48,6 +51,7 @@ function createDataManager() {
             if (exists) {
                 return earmarks;
             } else {
+                debugEarmark('New earmark:', earmark);
                 return this.set('earmarks', [ ...earmarks, earmark ]);
             }
             
