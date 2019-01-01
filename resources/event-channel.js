@@ -20,9 +20,10 @@ function createEventChannel({ resources }) {
     return {
         createReader(type) {
             // by default, only subscribe to agent events
-            const readerType = type ? type === 'build' ? 'agent' : type : 'agent';
+            const readerType = type ? (type === 'build' || type === 'unit') ? 'agent' : type : 'agent';
             const readerId = shortid.generate();
 
+            debugEventSilly(`new reader registered of type ${readerType}`);
             // @TODO: i think immutability is good here, but need to revisit the tax on GC
             readers = [...readers, readerId];
 
@@ -36,9 +37,10 @@ function createEventChannel({ resources }) {
         },
     
         read(readerId) {
+            debugEventSilly(`all current events: ${events.map(event => event.name)}`);
             // get all events holding this readerId
             const unreadEvents = events.filter(event => event.readers.includes(readerId));
-
+            debugEventSilly(`Reading events for ${readerId}, the following are unread: ${unreadEvents.map(event => event.name)}`);
             // remove the reader id from the event, essentially 'consuming' it
             unreadEvents.forEach(event => event.consume(readerId));
 
@@ -67,21 +69,21 @@ function createEventChannel({ resources }) {
                 gameLoop: currentFrame,
                 readers: currentReaders,
                 consume(readerId) {
-                    debugEventSilly(`consuming ${event.name} event for ${readerId}, event queue length: ${events.length}`);
                     this.readers = this.readers.filter(r => r !== readerId);
+                    debugEventSilly(`consuming ${event.name} event for ${readerId} - ${this.readers.length} readers left to consume this event.`);
 
                     // if there are no more readers, remove it from the event channel queue
                     if (this.readers.length <= 0) {
                         this.destroy();
-                        debugEventSilly(`event consumed, event queue length: ${events.length}`);
+                        debugEventSilly(`${event.name} event consumed, event queue length: ${events.length}`);
                     }
-                    
-                    
                 },
                 destroy() {
-                    events = events.filter(ev => ev === this);
+                    events = events.filter(ev => ev !== this);
                 }
             };
+
+            debugEventSilly(`New ${event.name} event with these readers: ${currentReaders}`);
 
             events = [
                 ...events,
