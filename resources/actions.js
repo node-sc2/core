@@ -3,13 +3,15 @@
 const debugActionManager = require('debug')('sc2:debug:actionManager');
 const Promise = require('bluebird');
 const createTransport = require('@node-sc2/proto');
-const { distance } = require('../utils/geometry/point');
 const getRandom = require('../utils/get-random');
+const { distance, nClosestPoint } = require('../utils/geometry/point');
+const { gridsInCircle } = require('../utils/geometry/angle');
 const {
     Ability,
-    enums: { Alliance },
-    groups: { gasMineTypes }, 
-    UnitType: { MULE },
+    enums: { Alliance, Race, AbilityDataTarget },
+    UnitType,
+    UnitTypeId,
+    WarpUnitAbility,
 } = require('../constants');
 const { GasMineRace } = require('../constants/race-map');
 const UnitAbilites = require('../constants/unit-ability-map');
@@ -101,6 +103,29 @@ function createActionManager(world) {
                     return res;
                 });
         },
+        async patrol(u, p, queue = false) {
+            const units = Array.isArray(u) ? u : [u];
+
+            const points = Array.isArray(p) ? p : [u.pos, p];
+            const [from, to] = points;
+
+            const patrolToTo = {
+                abilityId: Ability.PATROL,
+                unitTags: units.map(u => u.tag),
+                targetWorldSpacePos: to,
+                queueCommand: true,
+            };
+
+            return this.move(units, from, queue)
+                .then(() => this.sendAction(patrolToTo))
+                .then((res) => {
+                    if (res.result[0] !== 1) {
+                        throw new Error(`Could not patrol unit, result ${res.result[0]}`);
+                    }
+
+                    return res;
+                });
+        },
         async attack(us, unit, queue = false) {
             const units = Array.isArray(us) ? us : [us];
 
@@ -116,7 +141,7 @@ function createActionManager(world) {
             const { map } = world.resources.get();
 
             const moveUnits = us;
-            const position = p || map.getLocations().enemy;
+            const position = p || map.getLocations().enemy[0];
 
             return this.sendAction({
                 abilityId: Ability.ATTACK_ATTACK,
@@ -171,7 +196,7 @@ function createActionManager(world) {
         async gather(unit, mineralField, queue = true) {
             const { units } = world.resources.get();
 
-            if (!unit.isWorker() && unit.unitType !== MULE) {
+            if (!unit.isWorker() && unit.unitType !== UnitType.MULE) {
                 throw new GatherError('only workers can gather', { data: { unit, mineralField, queue }});
             }
 
@@ -180,22 +205,30 @@ function createActionManager(world) {
                 queue = true;
             }
 
-            const ownBases = units.getBases(Alliance.SELF);
+            const ownBases = units.getBases(Alliance.SELF).filter(b => b.buildProgress >= 1);
 
             let target;
             if (mineralField && mineralField.tag) {
                 target = mineralField;
             } else {
+                let targetBase;
                 const needyBase = ownBases.sort((a, b) => {
-                    return (a.assignedHarvesters - a.idealHarvesters) - (b.assignedHarvesters - b.idealHarvesters);
-                })[0];
+                    // sort by the closest base to the idle worker
+                    return distance(unit.pos,a.pos) - distance(unit.pos, b.pos);
+                })
+                // try to find a base that's needy, closest first
+                .find(base => base.assignedHarvesters < base.idealHarvesters);
 
-                // only include fields that are in the current frame... fixes the visible / snapshot tag flop issue
-                const currentMineralFields = units.getMineralFields().filter(field => field.isCurrent());
+                if (!needyBase) {
+                    [targetBase] = ownBases;
+                } else {
+                    targetBase = needyBase;
+                }
 
-                const needyBaseFields = units.getClosest(needyBase.pos, currentMineralFields, 6);
+                const currentMineralFields = units.getMineralFields();
+                const targetBaseFields = units.getClosest(targetBase.pos, currentMineralFields, 3);
                 
-                target = units.getClosest(unit.pos, needyBaseFields)[0];
+                [target] = units.getClosest(unit.pos, targetBaseFields);
             }
 
             const sendToGather = {
@@ -214,7 +247,9 @@ function createActionManager(world) {
                     return res;
                 });
         },
-        async mine(units, target, queue = true) {
+        async mine(us, target, queue = true) {
+            const units = Array.isArray(us) ? us : [us];
+
             const sendToMine = {
                 abilityId: Ability.HARVEST_GATHER,
                 unitTags: units.map(u => u.tag),
@@ -246,13 +281,14 @@ function createActionManager(world) {
                 false;
             }
         },
-        async build(unitTypeId, posOrTarget, worker) {
+        async build(unitTypeId, pointOrUnitOrNone, worker) {
             const { units, frame } = world.resources.get();
 
+            let queue = false;
             if (world.agent.hasTechFor(unitTypeId) === false) {
                 throw new BuildError(
                     'Missing tech requirements to build unit type',
-                    { data: { unitTypeId, posOrTarget, worker } }
+                    { data: { unitTypeId, pointOrUnitOrNone, worker } }
                 );
             }
 
@@ -267,34 +303,80 @@ function createActionManager(world) {
             if (!world.agent.canAfford(unitTypeId)) {
                 throw new BuildError(
                     `You can not (currently) afford to build unitTypeId ${unitTypeId}`,
-                    { data: { unitTypeId, posOrTarget, worker } }
+                    { data: { unitTypeId, pointOrUnitOrNone, worker } }
                 );
             }
 
             let pos, target;
 
-            if (posOrTarget.tag) {
-                target = posOrTarget;
-            } else {
-                pos = posOrTarget;
-            }
-
-            /** @type {Unit} */
-            let builder;
-            if (!worker) {
-                const builders = units.getMineralWorkers();
-
-                builder = units.getClosest(pos || target.pos, builders)[0];
-            } else {
-                builder = worker;
+            if (pointOrUnitOrNone && pointOrUnitOrNone.tag) {
+                target = pointOrUnitOrNone;
+            } else if (pointOrUnitOrNone && pointOrUnitOrNone.x) {
+                pos = pointOrUnitOrNone;
             }
 
             const { abilityId } = world.data.getUnitTypeData(unitTypeId);
 
+            const buildAbilityTarget = world.data.getAbilityData(abilityId).target;
+            const mustBeNone = buildAbilityTarget === AbilityDataTarget.NONE;
+            const canBeNone = (
+                mustBeNone ||
+                buildAbilityTarget === AbilityDataTarget.POINTORNONE
+            );
+
+            if (!target && !pos && !canBeNone) {
+                throw new BuildError(
+                    `Building unit ${unitTypeId} with build ability ${abilityId} requires a target of type ${buildAbilityTarget}, but none was given`,
+                    { data: { unitTypeId, pointOrUnitOrNone, worker } }
+                );
+            }
+
+            if ((target || pos) && mustBeNone) {
+                throw new BuildError(
+                    `Building unit ${unitTypeId} with build ability ${abilityId} must be done without a target, but you gave: ${pointOrUnitOrNone}. Try passing null as the second argument, and your target as the third.`,
+                    { data: { unitTypeId, pointOrUnitOrNone, worker } }
+                );
+            }
+
+            /** @type {Unit} */
+            let builder;
+            if (worker) {
+                builder = worker;
+            } else {
+                const builders = [
+                    ...units.getMineralWorkers(),
+                    ...units.getWorkers().filter(w => w.noQueue),
+                ];
+
+                // @FIXME: race-specific stuff should be Proxy'd and not conditional like this, ugly
+                if (world.agent.race === Race.PROTOSS) {
+                    const builderWorkers = units.getConstructingWorkers().filter(w => w.hasLabel('stuck'));
+                    if (builderWorkers.length > 0) {
+                        [builder] = units.getClosest(pos || target.pos, builderWorkers);
+                        if (distance(builder.pos, pos || target.pos) < 20) {
+                            queue = true;
+                        } else {
+                            [builder] = units.getClosest(pos || target.pos, builders);
+                        }
+                    } else {
+                        [builder] = units.getClosest(pos || target.pos, builders);
+                    }
+                } else {
+                    [builder] = units.getClosest(pos || target.pos, builders);
+                }
+            }
+
+            if (!builder) {
+                throw new BuildError(
+                    'Unable to find or use builder, something is very wrong',
+                    { data: { unitTypeId, pointOrUnitOrNone, worker } }
+                );
+            }
+
             const unitCommand = {
                 abilityId,
                 unitTags: [builder.tag],
-                queueCommand: false,
+                queueCommand: queue,
             };
 
             // give the builder a command label so we know we're already issuing it something this frame
@@ -306,10 +388,9 @@ function createActionManager(world) {
             world.agent.minerals = world.agent.minerals - mineralCost;
             world.agent.vespene = world.agent.vespene - vespeneCost;
 
-            if (target) {
-                // @ts-ignore le sigh
+            if (target) { 
                 unitCommand.targetUnitTag = target.tag;
-            } else {
+            } else if (pos) {
                 unitCommand.targetWorldSpacePos = pos;
             }
 
@@ -324,31 +405,22 @@ function createActionManager(world) {
                     }
 
                     // @FIXME: is there any reason we should hold the loop on this? i feel like there might be...
-                    await this.gather(builder); 
+                    if (unitTypeId === GasMineRace[world.agent.race]) {
+                        await this.gather(builder);
+                    }
 
                     return res;
                 });
         },
         async buildGasMine() {
-            const { units } = world.resources.get();
-
-            // @TODO: put this somewhere useful
-            const geyserHasMine = (geyser) => {
-                const gasMines = units.getByType(gasMineTypes);
-                return gasMines.find(mine => distance(geyser.pos, mine.pos) < 1);
-            };
+            const { map } = world.resources.get();
             
             const gasMine = GasMineRace[world.agent.race];
-            const geysers = units.getGasGeysers();
-            
-            const geyser = geysers
-                .filter(g => units.getBases().some(b => distance(b.pos, g.pos) < 15))
-                .find(g => !geyserHasMine(g));
+            const [geyser] = map.freeGasGeysers();
 
             if (!geyser) {
                 throw new BuildError(
-                    'no free geysers in own expansions for building mines on',
-                    { data: { geysers } },
+                    'no free geysers in own expansions for building mines on'
                 );
             }
 
@@ -379,8 +451,7 @@ function createActionManager(world) {
             if (productionUnit) {
                 trainer = productionUnit;
             } else {
-                trainer = units.getProductionUnits(unitTypeId)
-                    .find(u => u.noQueue);
+                trainer = units.getProductionUnits(unitTypeId).find(u => u.noQueue);
             }
 
             if (!trainer) {
@@ -390,7 +461,11 @@ function createActionManager(world) {
                 );
             }
 
-            const { abilityId } = world.data.getUnitTypeData(unitTypeId);
+            const { mineralCost, vespeneCost, abilityId } = world.data.getUnitTypeData(unitTypeId);
+
+            world.agent.minerals = world.agent.minerals - mineralCost;
+            world.agent.vespene = world.agent.vespene - vespeneCost;
+
             const unitCommand = { abilityId, unitTags: [trainer.tag] };
 
             return this.sendAction(unitCommand)
@@ -431,6 +506,58 @@ function createActionManager(world) {
 
                     return res;
                 });
+        },
+        async warpIn(unitType, opts = {}) {
+            const { units, map } = world.resources.get();
+            const abilityId = WarpUnitAbility[unitType];
+            const n = opts.maxQty || 1;
+            const nearPosition = opts.nearPosition || map.getCombatRally();
+
+            const qtyToWarp = world.agent.canAffordN(unitType, n);
+            if (qtyToWarp <= 0) {
+                throw new ActionManagerError(
+                    `cannot afford warping any qty of unit: ${UnitTypeId[unitType]}`,
+                    { data: { unitType, opts }}
+                );
+            }
+
+            const selectedMatricies = units.getClosest(nearPosition, world.agent.powerSources, opts.nearPosition ? 1 : 3);
+            let myPoints = selectedMatricies
+                .map(matrix => gridsInCircle(matrix.pos, matrix.radius))
+                .reduce((acc, arr) => acc.concat(arr), [])
+                .filter(p => map.isPathable(p) && !map.hasCreep(p));
+
+            if (opts.highground) {
+                myPoints = myPoints
+                    .map(p => ({ ...p, z: map.getHeight(p) }))
+                    .sort((a, b) => b.z - a.z)
+                    .filter((p, i, arr) => p.z === arr[0].z);
+            }
+    
+            const myStructures = units.getStructures();
+            const points = nClosestPoint(nearPosition, myPoints, 100)
+                .filter(point => myStructures.every(structure => distance(structure.pos, point) > 2));
+    
+            const warpGates = units.getById(UnitType.WARPGATE).filter(wg => wg.abilityAvailable(abilityId)).slice(0, qtyToWarp);
+            if (warpGates.length <= 0) {
+                throw new ActionManagerError(`No ready warpgates with ability to warp in ${UnitTypeId[unitType]}`);
+            }
+
+            const destPoints = getRandomN(points, warpGates.length);
+    
+            const commands = warpGates.map((warpGate, i) => ({
+                abilityId,
+                unitTags: [warpGate.tag],
+                targetWorldSpacePos: destPoints[i],
+            }));
+
+            return this.sendAction(commands).then(async (res) => {
+                if (res.result[0] !== 1) {
+                    throw new Error(`Could not warp in unit, result ${res.result[0]}`);
+                }
+
+                return res;
+            });
         },
         async sendQuery(query) {
             return protoClient.query(query);
