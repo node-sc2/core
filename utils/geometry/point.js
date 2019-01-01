@@ -136,6 +136,12 @@ function areEqual(a, b) {
     return a.x === b.x && a.y === b.y;
 }
 
+/**
+ *
+ * @param {Point2D} pos 
+ * @param {Point2D[]} points
+ * @return {Point2D}
+ */
 function closestPoint(pos, points) {
     return points.map(point => ({ point, distance: distance(pos, point) }))
             .sort((a, b) => a.distance - b.distance)
@@ -156,7 +162,26 @@ function avgPoints(points) {
     };
 }
 
+function normalize(vec) {
+    return {
+        x: vec.x / Math.sqrt(vec.x * vec.x + vec.y * vec.y),
+        y: vec.y / Math.sqrt(vec.x * vec.x + vec.y * vec.y),
+    };
+}
+
+/**
+ * @param {Point2D} param0 
+ */
+const createPoint2D = ({x, y}) => ({ x: Math.floor(x), y: Math.floor(y) });
+
+/**
+ * @param {SC2APIProtocol.Point} param0 
+ */
+const createPoint = ({x, y, z}) => ({ x: Math.floor(x), y: Math.floor(y), z:  Math.floor(z) });
+
 module.exports = {
+    createPoint,
+    createPoint2D,
     areEqual,
     avgPoints,
     dotProduct,
@@ -168,6 +193,7 @@ module.exports = {
     subtract,
     multiply,
     divide,
+    normalize,
     closestPoint,
     nClosestPoint
 };
