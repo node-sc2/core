@@ -1,28 +1,28 @@
 'use strict';
 
+const debugDrawPlacement = require('debug')('sc2:DrawPlacementMap');
+const debugDrawMap = require('debug')('sc2:DrawDebugMap');
+const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
+const debugDebug = require('debug')('sc2:debug:MapSystem');
+const debugSilly = require('debug')('sc2:silly:MapSystem');
 const hullJs = require('hull.js');
 const bresenham = require('bresenham');
 const createSystem = require('./index');
-const { consumeRawGrids } = require('../utils/map/grid');
-const { vespeneGeyserTypes } = require('../constants/groups');
+const { consumeRawGrids, consumeImageData } = require('../utils/map/grid');
 const findClusters = require('../utils/map/cluster');
 const createExpansion = require('../engine/create-expansion');
 const floodFill = require('../utils/map/flood');
-const { distance, avgPoints, areEqual } = require('../utils/geometry/point');
 const { distanceAAShapeAndPoint } = require('../utils/geometry/plane');
-const { MineralField } = require('../utils/geometry/units');
+const { distance, avgPoints, areEqual, closestPoint, createPoint2D} = require('../utils/geometry/point');
+const { frontOfGrid } = require('../utils/map/region');
+const { gridsInCircle } = require('../utils/geometry/angle');
+const { MineralField, getFootprint } = require('../utils/geometry/units');
+const { cellsInFootprint } = require('../utils/geometry/plane');
 const { debugGrid } = require('../utils/map/grid');
 const { Alliance } = require('../constants/enums');
-
-/**
- * @param {Point2D} param0 
- */
-const createPoint2D = ({x, y}) => ({ x: Math.floor(x), y: Math.floor(y) });
-
-/**
- * Map Engine System
- * @module system/map
- */
+const { MapDecompositionError } = require('../engine/errors');
+const Color = require('../constants/color');
+const { vespeneGeyserTypes } = require('../constants/groups');
 
 /**
  * 
@@ -30,14 +30,14 @@ const createPoint2D = ({x, y}) => ({ x: Math.floor(x), y: Math.floor(y) });
  * @param {Expansion} expansion 
  */
 function updateAreas(world, expansion) {
-    const { map } = world.resources.get();
+    const { map, debug } = world.resources.get();
     const { townhallPosition: thPos, cluster: { mineralFields } } = expansion;
 
     const isStartingLocation = (
         // is own base
         distance(map.getLocations().self, thPos) < 5 || 
         // is enemy base
-        distance(map.getLocations().enemy, thPos) < 5
+        distance(map.getLocations().enemy[0], thPos) < 5
     );
 
     //const tmpMiniMap = grids.miniMap.map(r => r.slice())
@@ -87,16 +87,26 @@ function updateAreas(world, expansion) {
         return !mineralLine.find(pos => pos.x === point.x && pos.y === point.y);
     }); */ // why were we doing this? The area fill should probably include the mineral line, no?
 
-    const naiveHull = hullJs(areaFill, 1, ['.x', '.y']);
+    const naiveHull = hullJs(areaFill, 2, ['.x', '.y']);
+    // debug.setDrawCells(`naiveHull-${Math.floor(expansion.townhallPosition.x)}`, naiveHull.map(fh => ({ pos: fh })), { size: 0.50, color: Color.AQUA, cube: true, persistText: true });
 
     const hull = naiveHull.reduce((acc, point, i, arr) => {
         const connector = arr[i + 1] || arr[0];
-        bresenham(point.x, point.y, connector.x, connector.y, (x, y) => acc.push({x, y}));
+        bresenham(point.x, point.y, connector.x, connector.y, (x, y) => {
+            if (!acc.find(p => p.x === x && p.y === y)) {
+                acc.push({x, y});
+            }
+        });
         return acc;
     }, []);
 
+    // debug.setDrawCells(`hull-${Math.floor(expansion.townhallPosition.x)}`, hull.map(fh => ({ pos: fh })), { size: 0.50, color: Color.YELLOW, cube: true, persistText: true });
+
     return {
         ...expansion,
+        getWall() {
+            return this.areas.wall;
+        },
         areas: {
             areaFill,
             hull,
@@ -121,8 +131,125 @@ function calculateRamps(minimap) {
     }, []);
 }
 
+/** 
+ * Natural wall only for now
+ * @param {World} world
+ */
+function calculateWall(world, expansion) {
+    const { map, debug } = world.resources.get();
+
+    const hull = expansion.areas.hull;
+    const foeHull = frontOfGrid(world, hull);
+    // debug.setDrawCells('fonHull', foeHull.map(fh => ({ pos: fh })), { size: 0.50, color: Color.YELLOW, cube: true, persistText: true });
+
+    const { pathing, miniMap } = map.getGrids();
+
+    const decomp = foeHull.reduce((decomp, { x, y }) => {
+        const neighbors = [
+            { y: y - 1, x},
+            { y, x: x - 1},
+            { y, x: x + 1},
+            { y: y + 1, x},
+        ];
+
+        const diagNeighbors = [
+            { y: y - 1, x: x - 1},
+            { y: y - 1, x: x + 1},
+            { y: y + 1, x: x - 1},
+            { y: y + 1, x: x + 1},
+        ];
+
+        const deadNeighbors = neighbors.filter(({ x, y }) => pathing[y][x] === 1);
+        const deadDiagNeighbors = diagNeighbors.filter(({ x, y }) => pathing[y][x] === 1);
+
+        if ((deadNeighbors.length <= 0) && (deadDiagNeighbors.length <= 0)) {
+            if (neighbors.filter(({ x, y }) => miniMap[y][x] === 114).length <= 0) {
+                decomp.liveHull.push({ x, y });
+            } else {
+                decomp.liveRamp.push({ x, y });
+            }
+        }
+
+        decomp.deadHull = decomp.deadHull.concat(deadNeighbors);
+        return decomp;
+    }, { deadHull: [], liveHull: [], liveRamp: [] });
+    const live = decomp.liveHull.length > 0 ? decomp.liveHull : decomp.liveRamp;
+
+    // debug.setDrawCells(`liveHull-${Math.floor(expansion.townhallPosition.x)}`, live.map(fh => ({ pos: fh })), { size: 0.5, color: Color.LIME_GREEN, cube: true });
+    // debug.setDrawCells(`deadHull-${Math.floor(expansion.townhallPosition.x)}`, decomp.deadHull.map(fh => ({ pos: fh })), { size: 0.5, color: Color.RED, cube: true });
+
+    const deadHullClusters = decomp.deadHull.reduce((clusters, dh) => {
+        if (clusters.length <= 0) {
+            const newCluster = [dh];
+            newCluster.centroid = dh;
+            clusters.push(newCluster);
+            return clusters;
+        }
+
+        const clusterIndex = clusters.findIndex(cluster => distance(cluster.centroid, dh) < (live.length - 1));
+        if (clusterIndex !== -1) {
+            clusters[clusterIndex].push(dh);
+            clusters[clusterIndex].centroid = avgPoints(clusters[clusterIndex]);
+        } else {
+            const newCluster = [dh];
+            newCluster.centroid = dh;
+            clusters.push(newCluster);
+        }
+
+        return clusters;
+    }, []);
+
+    // debug.setDrawTextWorld(`liveHullLength-${Math.floor(expansion.townhallPosition.x)}`, [{ pos: createPoint2D(avgPoints(live)), text: `${live.length}` }]);
+
+    // deadHullClusters.forEach((cluster, i) => {
+    //     debug.setDrawCells(`dhcluster-${Math.floor(expansion.townhallPosition.x)}-${i}`, cluster.map(fh => ({ pos: fh })), { size: 0.8, cube: true });
+    // });
+
+    const allPossibleWalls = deadHullClusters.reduce((walls, cluster, i) => {
+        const possibleWalls = cluster.map(cell => {
+            const notOwnClusters = deadHullClusters.filter((c, j) => j !== i);
+            return notOwnClusters.map(jcluster => {
+                const closestCell = closestPoint(cell, jcluster);
+                const line = [];
+                bresenham(cell.x, cell.y, closestCell.x, closestCell.y, (x, y) => line.push({x, y}));
+                return line;
+            });
+        }).reduce((walls, wall) => walls.concat(wall), []);
+
+        return walls.concat(possibleWalls);
+    }, [])
+    .map(wall => {
+        const first = wall[0];
+        const last = wall[wall.length -1];
+
+        const newGraph = map.newGraph(map._grids.placement.map(row => row.map(cell => cell === 0 ? 1 : 0)));
+
+        newGraph.setWalkableAt(first.x, first.y, true);
+        newGraph.setWalkableAt(last.x, last.y, true);
+        return map.path(wall[0], wall[wall.length -1], { graph: newGraph, diagonal: true })
+            .map(([x, y]) => ({ x, y }));
+    })
+    .map(wall => wall.filter(cell => map.isPlaceable(cell)))
+    .sort((a, b) => a.length - b.length)
+    .filter(wall => wall.length >= (live.length))
+    .filter (wall => distance(avgPoints(wall), avgPoints(live)) <= live.length)
+    .filter((wall, i, arr) => wall.length === arr[0].length);
+    
+    const [shortestWall] = allPossibleWalls;
+    
+    if (debugDrawWalls.enabled) {
+        debug.setDrawCells(`dhwall`, shortestWall.map(fh => ({ pos: fh })), { size: 0.8, color: Color.YELLOW, cube: true, persistText: true, });
+    }
+
+    expansion.areas.wall = shortestWall;
+    expansion.areas.areaFill = expansion.areas.areaFill.filter(areaPoint => {
+        return shortestWall.every(wallPoint => (
+            distance(wallPoint, expansion.townhallPosition) > distance(areaPoint, expansion.townhallPosition)
+        ));
+    });
+}
+
 /**
- * 
  * @param {World} world 
  */
 function calculateExpansions(world) {
@@ -134,10 +261,15 @@ function calculateExpansions(world) {
     const mainBase = units.getAll(Alliance.SELF).find(u => u.isTownhall());
     const vespeneGeysers = units.getByType(vespeneGeyserTypes);
 
+    if (!startingLocation) {
+        throw new MapDecompositionError('No starting locations - map is likely custom');
+    }
+
     const pathingSL = createPoint2D(startingLocation);
     pathingSL.x = pathingSL.x + 3;
 
-    const pathingEL = createPoint2D(map.getLocations().enemy);
+    // @TODO: handle the case of more than 1 enemy location
+    const pathingEL = createPoint2D(map.getLocations().enemy[0]);
     pathingEL.x = pathingEL.x + 3;
 
     let expansions;
@@ -155,10 +287,12 @@ function calculateExpansions(world) {
             const start = createPoint2D(expansion.townhallPosition);
             start.x = start.x + 3;
 
-            return Object.assign(expansion, {
+            const paths = {
                 pathFromMain: map.path(start, pathingSL),
                 pathFromEnemy: map.path(start, pathingEL),
-            });
+            };
+
+            return Object.assign(expansion, paths);
         })
         .sort((a, b) => a.pathFromMain.length - b.pathFromMain.length)
         .map(expansion => updateAreas(world, expansion))
@@ -168,29 +302,13 @@ function calculateExpansions(world) {
 
         map.setExpansions(expansions);
 
-        debug.setRegions(expansions);
-        debug.updateScreen();
+        if (debugDrawMap.enabled) {
+            debug.setRegions(expansions);
+        }
     } catch (e) {
         console.warn(e);
         console.warn('Map is not decomposable! If this is a 1v1 ladder map, please submit a bug report');
     }
-
-    // this._expansionsFromEnemy.forEach((ex, i) => {
-    //     const thPos = createPoint2D(ex.townhallPosition);
-    //     map._grids.pathing[thPos.y][thPos.x] = i.toString(16);
-    // });
-
-    // map._expansions.forEach((exp) => {
-    //     exp.areas.hull.forEach((hullCell) => {
-    //         map._grids.miniMap[hullCell.y][hullCell.x] = 'H';
-    //     });
-    // });
-
-    // path.forEach(([x, y]) => {
-    //     grids.pathing[y][x] = 'P';
-    // });
-
-    // debugGrid(map._grids.miniMap);
 
     return expansions;
 }
@@ -203,49 +321,185 @@ const mapSystem = {
         const { units, frame, map, debug } = world.resources.get();
         const { startRaw } = frame.getGameInfo();
 
-        map.setLocations({
-            self: units.getAlive(Alliance.SELF).find(u => u.isTownhall()).pos,
-            enemy: startRaw.startLocations[0],
-        });
+        const ownStartingTh = units.getAlive(Alliance.SELF).find(u => u.isTownhall());
+
+        if (ownStartingTh && startRaw.startLocations.length > 0) {
+            map.setLocations({
+                self: ownStartingTh.pos,
+                enemy: startRaw.startLocations,
+            });
+        }
 
         map.setGrids(consumeRawGrids(startRaw));
-        map.setGraph(startRaw.mapSize);
+        map.setSize(startRaw.mapSize);
+        map.setGraph();
 
         map.setRamps(calculateRamps(map._grids.miniMap).map((rPoint) => {
             return Object.assign(rPoint, { z: map.getHeight(rPoint) });
         }));
 
-        //debug.setDrawCells('ramps', ramps, null, { size: 1.0 });
-        //debug.updateScreen();
+        // debug.setDrawCells('ramps', map._ramps.map(r => ({ pos: r })), { size: 0.5, cube: true });
         calculateExpansions(world);
+        calculateWall(world, map.getNatural());
     },
-    async onStep({ resources }) {
-        const { frame, map } = resources.get();
+    async onStep({ data, resources }) {
+        const { frame, map, events, debug } = resources.get();
         const newMapState = frame.getMapState();
-        
-        map._mapState = {
-            ...map._mapState,
-            ...newMapState,
+        const mapState = {
+            creep: consumeImageData(newMapState.creep, map._mapSize.x),
+            visibility: consumeImageData(newMapState.visibility, map._mapSize.x),
         };
-    },
-    async onUnitCreated({ resources }, newUnit) {
-        const { frame, map } = resources.get();
 
-        if (!newUnit.isTownhall()) return;
+        map.setMapState(mapState);
+        const currEffectData = map.getEffects();
+        const newEffectData = frame.getEffects();
 
-        // if the 'townhall' that was just 'created' was the game starting...
-        if (frame.getGameLoop() <= 8) return;
+        // debug.setDrawCells('creepMap', map.getCreep().map(c => ({ pos: c })), { color: Color.RED });
+        const newEffects = newEffectData.filter(newEffect => {
+            return currEffectData.length > 0 ? 
+                currEffectData.some(currEffect => {
+                    return !(
+                        currEffect.effectId === newEffect.effectId &&
+                        currEffect.pos[0].x === newEffect.pos[0].x &&
+                        currEffect.pos[0].y === newEffect.pos[0].y &&
+                        currEffect.pos.length === newEffect.pos.length
+                    );
+                }):
+                true;
+        }).map((effect) => {
+            const effectData = data.getEffectData(effect.effectId);
+            const effectGrid = effect.pos.reduce((grid, pos) => {
+                return grid.concat(gridsInCircle(pos, effectData.radius, { normalize: true }));
+            }, []);
 
-        const newExpansion = map.getExpansions().find((expansion) => {
-            return areEqual(
-                expansion.townhallPosition,
-                map.getClosestExpansion(newUnit.pos).townhallPosition
-            );
+            return {
+                ...effect,
+                ...effectData,
+                effectGrid,
+            };
         });
 
-        // allow for misplaced townhalls, but not macro hatches
-        if (newExpansion && distance(newExpansion.townhallPosition, newUnit.pos) < 4.5) {
-            newExpansion.base = newUnit.tag;
+        if (newEffects.length >= 1) {
+            newEffects.forEach((effect) => {
+                debugSilly('New Effect!', effect);
+
+                events.write({
+                    name: 'newEffect',
+                    data: effect,
+                });
+            });
+        }
+
+        const expiredEffects = currEffectData.filter(currEffect => {
+            return newEffectData.length > 0 ?
+                newEffectData.some(newEffect => {
+                    return !(
+                        currEffect.effectId === newEffect.effectId &&
+                        currEffect.pos[0].x === newEffect.pos[0].x &&
+                        currEffect.pos[0].y === newEffect.pos[0].y &&
+                        currEffect.pos.length === newEffect.pos.length
+                    );
+                }):
+                true;
+        });
+
+        if (expiredEffects.length >= 1) {
+            expiredEffects.forEach((effect) => {
+                const effectData = data.getEffectData(effect.effectId);
+                debugSilly('Expired effect!', effect);
+                debugSilly('Effect Data:', effectData);
+
+                events.write({
+                    name: 'expiredEffect',
+                    data: {
+                        ...effect,
+                        ...effectData,
+                    },
+                });
+            });
+        }
+
+        const persistingEffects = currEffectData.filter(ce => { 
+            return expiredEffects.length > 0 ?
+                expiredEffects.some(expiredEffect => {
+                    return !(
+                        ce.effectId === expiredEffect.effectId &&
+                        ce.pos[0].x === expiredEffect.pos[0].x &&
+                        ce.pos[0].y === expiredEffect.pos[0].y &&
+                        ce.pos.length === expiredEffect.pos.length
+                    );
+                }):
+                true;
+        });
+
+        map.setActiveEffects(persistingEffects.concat(newEffects));
+
+        if (debugDrawPlacement.enabled) {
+            debug.setDrawCells(
+                'debugDrawPlaceable',
+                map.getGrids().placement.reduce((cells, row, y) => {
+                    row.forEach((placeable, x) => {
+                        cells.push({
+                            pos: { x, y },
+                            size: 0.2,
+                            color: placeable ? Color.LIME_GREEN : Color.RED,
+                        });
+                    });
+
+                    return cells;
+                }, []),
+                { includeText: false, }
+            );
+        }
+    },
+    async onUnitFinished({ resources }, newUnit) {
+        const { frame, map } = resources.get();
+
+        if (newUnit.isTownhall()) {
+            // if the 'townhall' that was just 'created' was the game starting...
+            if (frame.getGameLoop() <= 8) return;
+
+            const newExpansion = map.getExpansions().find((expansion) => {
+                return areEqual(
+                    expansion.townhallPosition,
+                    map.getClosestExpansion(newUnit.pos).townhallPosition
+                );
+            });
+
+            // allow for misplaced townhalls, but not macro hatches
+            if (newExpansion && distance(newExpansion.townhallPosition, newUnit.pos) < 4.5) {
+                newExpansion.base = newUnit.tag;
+            }
+        }
+    },
+    async onUnitCreated({ resources }, newUnit) {
+        const { map } = resources.get();
+
+        if (newUnit.isStructure()) {
+            const { pos } = newUnit;
+            const footprint = getFootprint(newUnit.unitType);
+
+            const blockedCells = cellsInFootprint(pos, footprint);
+
+            blockedCells.forEach(cell => {
+                map.setPlaceable(cell, false);
+                map.setPathable(cell, false);
+            });
+        }
+    },
+    async onUnitDestroyed({ resources }, deadUnit) {
+        const { map } = resources.get();
+
+        if (deadUnit.isStructure()) {
+            const { pos } = deadUnit;
+            const footprint = getFootprint(deadUnit.unitType);
+
+            const freedCells = cellsInFootprint(pos, footprint);
+
+            freedCells.forEach(cell => {
+                map.setPlaceable(cell, true);
+                map.setPathable(cell, true);
+            });
         }
     },
     async onEnemyFirstSeen({ resources }, scoutedUnit) {
