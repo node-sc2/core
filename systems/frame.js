@@ -80,19 +80,23 @@ const frameSystem = {
             actions.forEach((action) => {
                 action.actionRaw && action.actionRaw.unitCommand &&
                     action.actionRaw.unitCommand.unitTags.forEach((unitTag) => {
-                        units.getByTag(unitTag).labels.delete('command');
+                        const u = units.getByTag(unitTag);
+                        if (u && typeof u !== 'string') u.removeLabel('command');
                     });
             });
         }
 
         const outstandingCommands = units.withLabel('command');
         outstandingCommands.forEach((unit) => {
-            const frameCommanded = unit.labels.get('command');
+            const frameCommanded = unit.getLabel('command');
             const frameDifference = observation.gameLoop - frameCommanded;
             if (frameDifference > 250) {
                 // obviously something went wrong here...
                 debugFrame(`Outstanding unit command after ${frameDifference}ms! removing label`);
-                unit.labels.delete('command');
+                if (unit.isWorker()) {
+                    unit.addLabel('stuck', true);
+                }
+                unit.removeLabel('command');
             } 
         });
 
