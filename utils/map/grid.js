@@ -72,7 +72,12 @@ function consumeRawGrids(raw) {
 
     const height = heightGrid2D.map((row) => {
         return row.map(tile => {
-            return Math.round(-100 + 200 * tile / 255);
+            /**
+             * functional approximation just isn't good enough here...
+             * so unless we store a float, this is the other option -
+             */
+            const approx = (-100 + 200 * tile / 255) * 10;
+            return Math.round(Math.ceil(approx / 5) * 5);
         });
     });
 
