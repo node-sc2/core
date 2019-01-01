@@ -9,6 +9,7 @@ const pascalCase = require('pascal-case');
 const hrtimeH = require('convert-hrtime');
 const { launcher, findMap } = require('./launcher');
 const World = require('./create-world');
+const debugSystem = require('../systems/debug');
 const frameSystem = require('../systems/frame');
 const unitSystem = require('../systems/unit');
 const mapSystem = require('../systems/map');
@@ -109,7 +110,7 @@ function createEngine(options = {}) {
                 return;
             }
 
-            let mapPath;
+            let mapPath, battlenetMapName;
 
             if (map.includes('SC2Map')) {
                 mapPath = map;
@@ -117,22 +118,23 @@ function createEngine(options = {}) {
                 try {
                     mapPath = await findMap(map);
                 } catch (e) {
-                    console.warn(e);
-                    process.exit();
+                    battlenetMapName = map;
                 }
             }
 
             /** @type {SC2APIProtocol.RequestCreateGame} */
             const game = {
-                localMap: {
-                    mapPath,
-                },
                 realtime,
                 playerSetup,
             };
 
-            // not currently supporting battlenet cache maps.. cos it never works right
-            // game.battlenetMapName = map;
+            if (mapPath) {
+                game.localMap = { mapPath };
+            } else {
+                game.battlenetMapName = battlenetMapName;
+            }
+
+            // @FIXME: battlenet map cache sort of is broken
 
             debugEngine('CREATE GAME REQUEST: ', game);
 
@@ -215,7 +217,7 @@ function createEngine(options = {}) {
                 if (gameData[dataType]) data.set(dataType, gameData[dataType]);
             });
 
-            [...this.systems, ...agent.systems, agent].forEach(system => system.setup(world));
+            [...this.systems, ...agent.systems, agent, debugSystem].forEach(system => system.setup(world));
 
             const { events } = resources.get();
 
@@ -282,6 +284,7 @@ function createEngine(options = {}) {
                     // game over dude, we outtie
                     return this.onGameEnd(e.data);
                 } else {
+                    console.warn(e)
                     throw e;
                 }
             }
@@ -338,7 +341,10 @@ function createEngine(options = {}) {
              * by other systems that frame.
              */
             const { agent: { systems } } = world;
-            return Promise.map(systems, system => system(world));
+            await Promise.map(systems, system => system(world));
+
+            // debug system runs last because it updates the in-client debug display
+            return debugSystem(world);
         },
         lastRequest: null,
     };
