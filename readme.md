@@ -79,7 +79,7 @@ Then add the `bin` directive, and this npm script to your `package.json` under `
 "bin": "main.js", // change main.js to your entrypoint file name, if different
 ...
 "scripts": {
-    "build": "pkg ./ --target host --out-path ./dist",
+    "build": "pkg ./ --target win-x64 --out-path ./dist",
 }
 ```
 
