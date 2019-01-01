@@ -2,7 +2,14 @@
 
 const filterArr = require('lodash.filter');
 const { distance } = require('../utils/geometry/point');
-const { combatTypes, mineralFieldTypes, vespeneGeyserTypes, gatheringAbilities } = require('../constants/groups');
+const {
+    combatTypes,
+    constructionAbilities,
+    gatheringAbilities,
+    mineralFieldTypes,
+    vespeneGeyserTypes,
+    gasMineTypes,
+} = require('../constants/groups');
 const { Alliance, Attribute } = require('../constants/enums');
 const { WorkerRace } = require('../constants/race-map');
 
@@ -14,6 +21,7 @@ function createUnits(world) {
     return {
         _units: {
             [Alliance.SELF]: new Map(),
+            [Alliance.ALLY]: new Map(),
             [Alliance.ENEMY]: new Map(),
             [Alliance.NEUTRAL]: new Map(),
         },
@@ -49,14 +57,18 @@ function createUnits(world) {
                 .slice(0, n);
         },
         getMineralFields(filter) {
-            return this.getAll(filter)
+            return this.getAlive(filter)
                 .filter(unit => mineralFieldTypes.includes(unit.unitType));
         },
         getGasGeysers(filter) {
             return this.getAlive(filter)
                 .filter(unit => vespeneGeyserTypes.includes(unit.unitType));
         },
-        getStructures(filter) {
+        getGasMines(filter = Alliance.SELF) {
+            return this.getAlive(filter)
+                .filter(unit => gasMineTypes.includes(unit.unitType));
+        },
+        getStructures(filter = { alliance: Alliance.SELF }) {
             return this.getAlive(filter)
                 .filter((unit) => {
                     return world.data.getUnitTypeData(unit.unitType).attributes.includes(Attribute.STRUCTURE);
@@ -70,9 +82,8 @@ function createUnits(world) {
         getUnfinished(filter) {
             return this.getAlive(filter).filter(u => u.buildProgress < 1);
         },
-        getBases(alliance) {
-            return this.getAlive(alliance ? alliance : Alliance.SELF)
-                .filter(u => u.isTownhall());
+        getBases(filter = { alliance: Alliance.SELF }) {
+            return this.getAlive(filter).filter(u => u.isTownhall());
         },
         getAll(filter) {
             if (typeof filter === 'object') {
@@ -98,7 +109,7 @@ function createUnits(world) {
         getAlive(filter) {
             return this.getAll(filter).filter(u => u.isCurrent());
         },
-        getById(unitTypeId, filter) {
+        getById(unitTypeId, filter = { alliance: Alliance.SELF }) {
             return this.getAlive(filter).filter(u => u.unitType === unitTypeId);
         },
         // @ts-ignore overloads are hard apparently
@@ -111,9 +122,13 @@ function createUnits(world) {
                 return getUnitByTag(unitTags);
             }
         },
-        getCombatUnits() {
-            return this.getAlive(Alliance.SELF)
+        getCombatUnits(filter = Alliance.SELF) {
+            return this.getAlive(filter)
                 .filter(u => combatTypes.includes(u.unitType));
+        },
+        getRangedCombatUnits() {
+            return this.getCombatUnits()
+                .filter(u => world.data.getUnitTypeData(u.unitType).weapons.some(w => w.range > 1));
         },
         getWorkers(includeBusy = false) {
             const { agent } = world;
@@ -130,12 +145,14 @@ function createUnits(world) {
         getIdleWorkers() {
             return this.getWorkers().filter(w => w.noQueue);
         },
-        
         getMineralWorkers() {
             return this.getWorkers()
                 .filter(u => u.orders.length === 1 && gatheringAbilities.includes(u.orders[0].abilityId))
-                .filter(u => !u.labels.has('gasWorker'))
-                .filter(u => !u.labels.has('command'));
+                .filter(u => [...u.labels.keys()].length <= 0);
+        },
+        getConstructingWorkers() {
+            return this.getWorkers(true)
+                .filter(u => u.orders.some(o => constructionAbilities.includes(o.abilityId)));
         },
         withLabel(component) {
             return this.getAlive().filter(u => u.labels.has(component));
@@ -151,9 +168,15 @@ function createUnits(world) {
         getProductionUnits(unitTypeId) {
             // get the ability needed to produce the unit
             const { abilityId } = world.data.getUnitTypeData(unitTypeId);
-
+            
             // find the unitTypeId(s) of the unit(s) that produce(s) it
-            const producerUnitTypeIds = world.data.findUnitTypesWithAbility(abilityId);
+            let producerUnitTypeIds = world.data.findUnitTypesWithAbility(abilityId);
+
+            // if it's bogus, check what ability it remaps to
+            if (producerUnitTypeIds.length <= 0) {
+                const alias = world.data.getAbilityData(abilityId).remapsToAbilityId;
+                producerUnitTypeIds = world.data.findUnitTypesWithAbility(alias);
+            }
 
             // get all units with those unitTypes
             return this.getByType(producerUnitTypeIds);
