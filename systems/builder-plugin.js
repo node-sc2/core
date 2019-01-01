@@ -4,17 +4,19 @@ const debugBuild = require('debug')('sc2:debug:build');
 const debugBuildSilly = require('debug')('sc2:silly:build');
 const { distance, distanceX, distanceY } = require('../utils/geometry/point');
 const getRandom = require('../utils/get-random');
-const { Alliance, BuildOrder, BuildResult, Race } = require('../constants/enums');
+const { Alliance, BuildOrder, BuildOrderId, BuildResult, Race } = require('../constants/enums');
 const { BUILD_REACTOR, BUILD_TECHLAB } = require('../constants/ability');
-const { PYLON } = require('../constants/unit-type');
 const { WorkerRace } = require('../constants/race-map');
-const { gasMineTypes, townhallTypes } = require('../constants/groups');
+const { gasMineTypes, townhallTypes, addonTypes } = require('../constants/groups');
+const { Upgrade, UnitType, UnitTypeId, AbilityId, UpgradeId, Color} = require('../constants');
+
+const { PYLON } = UnitType;
 
 const NOOP = () => {};
 
 /** @type {{[index: string]: BuildHelper }} */
 const taskFunctions = {
-    ability: (id) => ({ type: 'ability', id, qty: 1 }),
+    ability: (id, opts = {}) => ({ type: 'ability', id, qty: 1, opts }),
     build: (id, qty = 1, opts = {}) => ({ type: 'build', id, qty, opts }),
     train: (id, qty = 1, opts = {}) => ({ type: 'train', id, qty, opts }),
     upgrade: (id) => ({ type: 'upgrade', id, qty: 1}),
@@ -27,6 +29,24 @@ const taskFunctions = {
 function builderPlugin(system) {
     const buildSym = Symbol('build');
     const completeSym = Symbol('complete');
+
+    system.buildOptions = {
+        paused: false,
+        earmarks: 1000,
+        ...system.BuildOptions,
+    };
+
+    system.pauseBuild = function() {
+        system.buildOptions.paused = true;
+    };
+
+    system.resumeBuild = function() {
+        system.buildOptions.paused = false;
+    };
+
+    system.earmarkDelay = function(d) {
+        system.buildOptions.earmarks = d; 
+    };
 
     /** @type {{[index: string]: any}} */
     const buildFnSyms = {
@@ -50,6 +70,8 @@ function builderPlugin(system) {
             touched: false,
             supply: supply ? supply : null,
             status: BuildOrder.NOT_STARTED,
+            started: null,
+            earmarked: false,
         };
     }
 
@@ -118,9 +140,17 @@ function builderPlugin(system) {
 
 
     system.onStep = async function(world, gameLoop) {
+        if (system.buildOptions.paused) {
+            return systemOnStep(world, gameLoop);
+        }
+
         /** @type {BuildTaskI} */
         const task = this.state[buildSym]
-            .find(o => o.status === BuildOrder.IN_PROGRESS || o.status === BuildOrder.NOT_STARTED);
+            .find(o => 
+                o.status === BuildOrder.COMMAND_GIVEN ||
+                o.status === BuildOrder.IN_PROGRESS ||
+                o.status === BuildOrder.NOT_STARTED
+            );
 
         if (!task) {
             if (this.state[completeSym]) {
@@ -134,11 +164,80 @@ function builderPlugin(system) {
 
         const buildTask = this.state[buildSym][task.index];
 
-        if (buildTask.touched === false) {
-            debugBuild(`starting new build task: %o`, buildTask);
+        if (task.opts && task.opts.skip) {
+            if (system.state[task.opts.skip]) {
+                buildTask.status = BuildOrder.SKIPPED;
+                return systemOnStep(world, gameLoop, this.state[buildSym][task.index], BuildResult.SKIPPED);
+            }
         }
 
-        buildTask.touched = true;
+        if (buildTask.touched === false) {
+            debugBuild(`starting new build task: %o`, buildTask);
+            buildTask.started = gameLoop;
+            buildTask.touched = true;
+        }
+
+        if (debugBuild.enabled) {
+            world.resources.get().debug.setDrawTextScreen('buildOrder', [{
+                pos: { x: 0.85, y: 0.1 },
+                text: `Build:\n\n${this.state[buildSym].map((buildTask, i) => {
+                    let reverseId;
+                    if (buildTask.type === 'build' || buildTask.type === 'train') {
+                        reverseId = UnitTypeId[buildTask.id];
+                    } else if (buildTask.type === 'ability') {
+                        reverseId = AbilityId[buildTask.id];
+                    } else if (buildTask.type === 'upgrade') {
+                        reverseId = UpgradeId[buildTask.id];
+                    } else {
+                        reverseId = UnitTypeId[WorkerRace[world.agent.race]];
+                    }
+
+                    return `${String(i).padStart(2, '0')} ${BuildOrderId[buildTask.status]}: ${buildTask.type} - ${reverseId}`;
+                }).join('\n')}`,
+                color: Color.YELLOW,
+            }]);
+        }
+
+        if (this.buildOptions.earmarks && buildTask.status !== BuildOrder.COMMAND_GIVEN) {
+            if (gameLoop - buildTask.started >= this.buildOptions.earmarks) {
+                let cost;
+                switch (buildTask.type) {
+                    case 'train':
+                    case 'build': {
+                        cost = world.data.getUnitTypeData(buildTask.id);
+                        break;
+                    }
+                    case 'upgrade': {
+                        cost = world.data.getUpgradeData(buildTask.id);
+                        break;
+                    }
+                    case 'ability': {
+                        const unitFromAbility = world.data.get('units')
+                            .find(ud => ud.available && ud.abilityId === buildTask.id);
+                        if (unitFromAbility) {
+                            cost = world.data.getUnitTypeData(buildTask.id);
+                        }
+                        break;
+                    }
+                }
+
+                if (cost && !world.agent.canAfford(buildTask.id)) {
+                    world.data.addEarmark({
+                        name: `task${buildTask.index}`,
+                        minerals: cost.mineralCost,
+                        vespene: cost.vespeneCost,
+                    });
+                    buildTask.earmarked = true;
+                }
+            }
+        }
+        
+        if (buildTask.status === BuildOrder.COMMAND_GIVEN) {
+            if (gameLoop - buildTask.commanded >= 250) { // 11 seconds
+                // assume something broke and the command derped, build it (again?)!
+                buildTask.status = BuildOrder.NOT_STARTED;
+            }
+        }
 
         /** @enum {BuildResult} */
         const result = await this[buildFnSyms[task.type]](world, task);
@@ -154,6 +253,11 @@ function builderPlugin(system) {
                 }
                 break;
             }
+            case BuildResult.COMMAND_SENT: {
+                buildTask.commanded = gameLoop;
+                buildTask.status = BuildOrder.COMMAND_GIVEN;
+                break;
+            }
             case BuildResult.CANNOT_SATISFY: {
                 break;
             }
@@ -167,7 +271,7 @@ function builderPlugin(system) {
     };
 
     const buildPlacement = {
-        async [Race.PROTOSS]({ resources }, task) {
+        async [Race.PROTOSS]({ agent, resources }, task) {
             const { actions, map, units } = resources.get();
             const [main, natural] = map.getExpansions();
             const mainMineralLine = main.areas.mineralLine;
@@ -181,9 +285,10 @@ function builderPlugin(system) {
             const placements = [...main.areas.placementGrid, ...natural.areas.placementGrid]
                 .filter((point) => {
                     return (
-                        (distance(natural.townhallPosition, point) > 4) &&
+                        (distance(natural.townhallPosition, point) > 4.5) &&
                         (pylonsNearProduction.some(p => distance(p.pos, point) < 6.5)) &&
                         (mainMineralLine.every(mlp => distance(mlp, point) > 1.5)) &&
+                        (natural.areas.hull.every(hp => distance(hp, point) > 2)) &&
                         (units.getStructures({ alliance: Alliance.SELF })
                             .map(u => u.pos)
                             .every(eb => distance(eb, point) > 3))
@@ -195,9 +300,13 @@ function builderPlugin(system) {
             const foundPosition = await actions.canPlace(task.id, placements);
             if (!foundPosition) return BuildResult.CANNOT_SATISFY;
 
+            // in case something changed while waiting for placement position
+            const canNoLongerAfford = !agent.canAfford(task.id);
+            if (canNoLongerAfford) return BuildResult.CANNOT_SATISFY;
+
             try {
                 await actions.build(task.id, foundPosition);
-                return BuildResult.SUCCESS;
+                return BuildResult.COMMAND_SENT;
             } catch (e) {
                 return BuildResult.ERROR;
             }
@@ -205,6 +314,28 @@ function builderPlugin(system) {
         /** @param {World} param0 */
         async [Race.TERRAN]({ resources }, task) {
             const { actions, map, units } = resources.get();
+
+            if (addonTypes.includes(task.id)) {
+                let target;
+                if (task.opts.on) {
+                    [target] = units.getById(task.opts.on)
+                        .filter(u => u.isFinished() && u.noQueue && u.addOnTag === '0');
+                    debugBuild('no available units to build addon');
+                    if (!target) return BuildResult.CANNOT_SATISFY;
+                } else {
+                    [target] = units.getProductionUnits(task.id)
+                        .filter(u => u.isFinished() && u.noQueue && u.addOnTag === '0');
+                    if (!target) return BuildResult.CANNOT_SATISFY;
+                }
+
+                try {
+                    await actions.build(task.id, null, target);
+                    return BuildResult.COMMAND_SENT;
+                } catch (e) {
+                    return BuildResult.ERROR;
+                }
+            }
+
             const [main] = map.getExpansions();
             const mainMineralLine = main.areas.mineralLine;
             let hadNear;
@@ -228,7 +359,7 @@ function builderPlugin(system) {
                     return (
                         (mainMineralLine.every((mlp) => {
                             return (
-                                (distanceX(mlp, point) >= 5 || distanceY(mlp, point) >= 3) // for addon room
+                                (distanceX(mlp, point) >= 5 || distanceY(mlp, point) >= 1.5) // for addon room
                             );
                         })) &&
                         (main.areas.hull.every((hp) => {
@@ -240,7 +371,7 @@ function builderPlugin(system) {
                             .map(u => u.pos)
                             .every((eb) => {
                                 return (
-                                    (distanceX(eb, point) >= 5.5 || distanceY(eb, point) >= 4) // for addon room
+                                    (distanceX(eb, point) >= 5 || distanceY(eb, point) >= 3) // for addon room
                                 );
                             })
                         )
@@ -264,7 +395,7 @@ function builderPlugin(system) {
 
             try {
                 await actions.build(task.id, foundPosition);
-                return BuildResult.SUCCESS;
+                return BuildResult.COMMAND_SENT;
             } catch (e) {
                 return BuildResult.ERROR;
             }
@@ -292,8 +423,9 @@ function builderPlugin(system) {
 
             try {
                 await actions.build(task.id, foundPosition);
-                return BuildResult.SUCCESS;
+                return BuildResult.COMMAND_SENT;
             } catch (e) {
+                console.log(e);
                 return BuildResult.ERROR;
             }
         },
@@ -302,15 +434,26 @@ function builderPlugin(system) {
     /** @type {BuildFunction} */
     system[buildFnSyms.build] = async function(world, task) {
         const { agent, resources } = world;
+        const { units } = resources.get();
 
-        if (!agent.canAfford(task.id)) return BuildResult.CANNOT_SATISFY;
+        // command already given to build, verify it's happening
+        if (task.status === BuildOrder.COMMAND_GIVEN) {
+            const [u] = units.getById(task.id).filter(unit => !unit.isFinished());
+            if (u) {
+                return BuildResult.SUCCESS;
+            } else {
+                return BuildResult.CANNOT_SATISFY;
+            }
+        }
 
-        const { actions, map } = resources.get();
+        if (!agent.canAfford(task.id, task.earmarked ? `task${task.index}` : null)) return BuildResult.CANNOT_SATISFY;
+
+        const { actions, map, placer } = resources.get();
 
         if (gasMineTypes.includes(task.id)) {
             try {
                 await actions.buildGasMine();
-                return BuildResult.SUCCESS;
+                return BuildResult.COMMAND_SENT;
             } catch(e) {
                 return BuildResult.ERROR;
             }
@@ -323,20 +466,43 @@ function builderPlugin(system) {
 
             try {
                 await actions.build(task.id, foundPosition);
-                return BuildResult.SUCCESS;
+                return BuildResult.COMMAND_SENT;
             } catch(e) {
                 return BuildResult.ERROR;
             }
         } else {
-            return buildPlacement[agent.race](world, task);
+            if (placer && placer.place) {
+                const placements = placer.place(world, task.id);
+
+                if (!placements || placements.length <= 0) {
+                    return buildPlacement[agent.race](world, task);
+                }
+
+                const foundPosition = await actions.canPlace(task.id, placements);
+                if (!foundPosition) {
+                    return buildPlacement[agent.race](world, task);
+                }
+
+                // in case something changed while waiting for placement position
+                const canNoLongerAfford = !agent.canAfford(task.id);
+                if (canNoLongerAfford) return BuildResult.CANNOT_SATISFY;
+
+                try {
+                    await actions.build(task.id, foundPosition);
+                    return BuildResult.COMMAND_SENT;
+                } catch (e) {
+                    return BuildResult.ERROR;
+                }
+            } else {
+                return buildPlacement[agent.race](world, task);
+            }
         }
     };
 
-    system[buildFnSyms.train] = async function({ resources }, task) {
+    system[buildFnSyms.train] = async function({ agent, resources }, task) {
         const { actions } = resources.get();
 
         let id;
-
         if (Array.isArray(task.id)) {
             id = getRandom(task.id);
         } else {
@@ -344,7 +510,15 @@ function builderPlugin(system) {
         }
 
         try {
-            await actions.train(id);
+            if (agent.upgradeIds.includes(Upgrade.WARPGATERESEARCH)) {
+                try {
+                    await actions.warpIn(id);
+                } catch(e) {
+                    await actions.train(id);
+                }
+            } else {
+                await actions.train(id);
+            }
             return BuildResult.SUCCESS;
         } catch (e) {
             debugBuildSilly('BUILD TRAIN ERR:', e);
@@ -369,7 +543,7 @@ function builderPlugin(system) {
     system[buildFnSyms.upgrade] = async function({ agent, resources }, task) {
         const { actions, units } = resources.get();
 
-        if (!agent.canAffordUpgrade(task.id)) return BuildResult.CANNOT_SATISFY;
+        if (!agent.canAffordUpgrade(task.id, task.earmarked ? `task${task.index}` : null)) return BuildResult.CANNOT_SATISFY;
 
         const upgradeFacilities = units.getUpgradeFacilities(task.id);
 
@@ -392,8 +566,7 @@ function builderPlugin(system) {
         const { actions, units } = resources.get();
 
         const canDo = data.findUnitTypesWithAbility(task.id);
-
-        let unitsCanDo = units.getByType(canDo);
+        let unitsCanDo = units.getByType(canDo).filter(u => u.abilityAvailable(task.id));
 
         if ([BUILD_REACTOR, BUILD_TECHLAB].includes(task.id)) {
             unitsCanDo = unitsCanDo.filter(u => u.addOnTag === '0' && u.noQueue);
@@ -401,8 +574,18 @@ function builderPlugin(system) {
         
         if (unitsCanDo.length <= 0) return BuildResult.CANNOT_SATISFY;
 
+        let target;
+        if (task.opts.target) {
+            target = getRandom(units.getById(task.opts.target).filter(u => u.isFinished()));
+            if (!target) return BuildResult.CANNOT_SATISFY;
+        }
+
         try {
-            await actions.do(task.id, [unitsCanDo[0].tag]);
+            await actions.do(
+                task.id,
+                [unitsCanDo[0].tag],
+                { target }
+            );
             return BuildResult.SUCCESS;
         } catch (e) {
             debugBuild('BUILD ABILITY ERR:', e);
