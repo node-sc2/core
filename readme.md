@@ -133,9 +133,7 @@ Please note, this project adheres to [Semantic Versioning](https://semver.org/sp
 - Unit Resource enhancements
   - Added support for ALLY type units  
   - `getGasMines(filter: UnitFilter) => Unit[]`  
-  - `getById`, `getBases`, and `getStructures` now take consistent filter argument  
   - `getConstructingWorkers() => Unit[]` (workers with active building orders)  
-  - `getProductionUnits` now takes into account weirdo aliased mapped units to find producers
 
 - Unit Entity enhancements
   - `canMove() => bool`
@@ -229,6 +227,17 @@ Please note, this project adheres to [Semantic Versioning](https://semver.org/sp
 - Fixed a long standing bug with the event-channel
   - events will no longer be swallowed sometimes when still having readers  
 
+- Constants
+Changes are mainly for improving consistency and behavior
+  - Added `UnitTypeId`, `AbilityId`, and `UpgradeId` to the main export (these are the reverses, to get the string representation of the ids from the ids - for stuff like labels / debugging)
+
+- Unit Resource enhancements
+  - Added support for ALLY type units  
+  - `getGasMines(filter: UnitFilter) => Unit[]`  
+  - `getById`, `getBases`, and `getStructures` now take consistent filter argument  
+  - `getConstructingWorkers() => Unit[]` (workers with active building orders)  
+  - `getProductionUnits` now takes into account weirdo aliased mapped units to find producers
+
 - Agent Entity changes
   - `canAffordUpgrade` now properly respects earmarks  
   - Allows adding systems to an agent while a game is running  
@@ -238,10 +247,6 @@ Please note, this project adheres to [Semantic Versioning](https://semver.org/sp
   - `build` tasks now take an extra step to verify the thing they are building has started, to stop derps, before moving on 
   - will now warp in units with a normal `train` task  
   - robustified `ability` to support more scenarios (like terran addons)  
-
-- Constants
-Changes are mainly for improving consistency and behavior
-  - Added `UnitTypeId`, `AbilityId`, and `UpgradeId` to the main export (these are the reverses, to get the string representation of the ids from the ids - for stuff like labels / debugging)
 
 - Map Resource changes
   - Updated `map.path` to allow to inject your own graph weights  
