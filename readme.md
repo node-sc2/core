@@ -232,10 +232,7 @@ Changes are mainly for improving consistency and behavior
   - Added `UnitTypeId`, `AbilityId`, and `UpgradeId` to the main export (these are the reverses, to get the string representation of the ids from the ids - for stuff like labels / debugging)
 
 - Unit Resource enhancements
-  - Added support for ALLY type units  
-  - `getGasMines(filter: UnitFilter) => Unit[]`  
-  - `getById`, `getBases`, and `getStructures` now take consistent filter argument  
-  - `getConstructingWorkers() => Unit[]` (workers with active building orders)  
+  - `getById`, `getBases`, and `getStructures` now take consistent filter arguments 
   - `getProductionUnits` now takes into account weirdo aliased mapped units to find producers
 
 - Agent Entity changes
