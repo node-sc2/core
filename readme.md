@@ -122,7 +122,7 @@ Please note, this project adheres to [Semantic Versioning](https://semver.org/sp
 #### Highlights:
 - Initial support for in-engine unit footprinting and placements (footprints look like: { w: number, h: number }, for instance, a mineral field would be { w: 2, h: 1 })
 - Initial support for custom maps (or at least the engine shouldn't explode if it doesn't understand map topography or player configuration)
-##### Added
+#### Added
 - Initial support for unit type systems (good luck figuring it out how it works before i write docs :p)- Added some more proto api enums to the built-ins 
 - MORE DEBUG COLORS! yay debugging
 - Added `unitHasDisengaged` event
@@ -223,7 +223,7 @@ Please note, this project adheres to [Semantic Versioning](https://semver.org/sp
 - Other enhancements
   - workers can now be labeled as 'stuck' if given a command over 250 frames old with no confirmation that the command could be attempted or errored
 
-##### Changed
+#### Changed
 - Updated pathfinding dep to a fork with weight support
 - Fixed the way tile height is calculated to not be terrible (it's still broken, but less broken)
 - Fixed a long standing bug with the event-channel
