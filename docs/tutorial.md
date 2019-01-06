@@ -150,7 +150,7 @@ So now we have our bases saturated more optimally, and zealots pumping out of al
         } else if (newUnit.isCombatUnit()) {
             /* `map.getCombatRally()` is sort of a silly helper, but it's 
              * a good enough default we can use for now :) */
-            return actions.attackMove([newUnit], map.getCombatRally());
+            return actions.attackMove(newUnit, map.getCombatRally());
         }
     },
 ```
