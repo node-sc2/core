@@ -38,7 +38,7 @@ const { createAgent, createEngine, createPlayer } = require('@node-sc2/core');
 const { Difficulty, Race } = require('@node-sc2/core/constants/enums');
 
 const bot = createAgent({
-    onGameStart({ resources }) {
+    async onGameStart({ resources }) {
         const { units, actions, map } = resources.get();
 
         const workers = units.getWorkers();
