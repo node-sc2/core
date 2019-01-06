@@ -138,12 +138,6 @@ Remember to also add the `ZEALOT` constant to your list of requires at the top o
 So now we have our bases saturated more optimally, and zealots pumping out of all the gateways, great!. But there are still some issues you notice no doubt. The zealots just sort of... stand there next to the gateways as they pop out. Let's rally them to somewhere outside of our natural. To do that, we're going to add a little clause to our existing `onUnitCreated` consumer:
 
 ```js
-/* add this to the top of the file to access the `combatTypes` unit group definition.
- * this is just a convenience array of all types that are considered 'combat' units */
-const { combatTypes } = require('@node-sc2/core/constants/groups');
-
-//... then lets update our `onUnitCreated` method....
-
     async onUnitCreated({ resources }, newUnit) {
         // add `map` to the resources we're getting
         const { actions, map } = resources.get();
@@ -153,7 +147,7 @@ const { combatTypes } = require('@node-sc2/core/constants/groups');
             return actions.gather(newUnit);
             /* "if the new unit is a combat unit...", just in case we
             * decide to make something other than zealots */
-        } else if (combatTypes.includes(newUnit.unitType)) {
+        } else if (newUnit.isCombatUnit()) {
             /* `map.getCombatRally()` is sort of a silly helper, but it's 
              * a good enough default we can use for now :) */
             return actions.attackMove([newUnit], map.getCombatRally());
