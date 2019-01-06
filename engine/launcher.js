@@ -14,7 +14,7 @@ const HOME_DIR = os.homedir();
 const executeInfoText = fs.readFileSync(path.join(HOME_DIR, EXECUTE_INFO_PATH)).toString();
 const executablePath = executeInfoText.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/m)[2];
 
-const parsedPath = executablePath.split('\\');
+const parsedPath = executablePath.split(path.sep);
 const execName = parsedPath[parsedPath.length - 1];
 
 const basePath = parsedPath.slice(0, parsedPath.findIndex(s => s === 'StarCraft II') + 1).join(path.sep);
