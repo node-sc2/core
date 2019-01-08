@@ -66,10 +66,12 @@ const twoByTwoUnits = [
     UnitType.STARPORTTECHLAB,
     UnitType.SUPPLYDEPOT,
     UnitType.TECHLAB,
+    UnitType.UNBUILDABLEBRICKSDESTRUCTIBLE,
+    UnitType.UNBUILDABLEPLATESDESTRUCTIBLE,
 ];
 
 function getFootprint(unitType) {
-    if (!structureTypes.includes(unitType) || flyingStructureTypes.includes(unitType)) {
+    if (flyingStructureTypes.includes(unitType)) {
         return {
             h: 0,
             w: 0,
@@ -89,7 +91,7 @@ function getFootprint(unitType) {
             w: 2,
             h: 2,
         };
-    } else {
+    } else if (structureTypes.includes(unitType)) {
         // this currently isn't totally accurate, see `figureTheseOut` above
         return {
             w: 3,
