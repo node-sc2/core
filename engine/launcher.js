@@ -8,7 +8,13 @@ const { spawn } = require('child_process');
 const path = require('path');
 const findP = require('find-process');
 
-const EXECUTE_INFO_PATH = path.join('Documents', 'StarCraft II', 'ExecuteInfo.txt');
+let EXECUTE_INFO_PATH;
+if (os.platform() === 'darwin') {
+    EXECUTE_INFO_PATH = path.join('Library', 'Application Support', 'Blizzard', 'StarCraft II', 'ExecuteInfo.txt');
+} else {
+    EXECUTE_INFO_PATH = path.join('Documents', 'StarCraft II', 'ExecuteInfo.txt');
+}
+
 const HOME_DIR = os.homedir();
 
 const executeInfoText = fs.readFileSync(path.join(HOME_DIR, EXECUTE_INFO_PATH)).toString();
@@ -72,7 +78,7 @@ async function launcher(options = {}) {
         '-port', String(opts.port),
         '-displayMode', String(opts.displayMode)
     ], {
-        cwd: path.join(basePath, 'Support64'),
+        cwd: os.platform() === 'win32' ? path.join(basePath, 'Support64') : undefined,
         detached: true,
         stdio: 'ignore',
     });
