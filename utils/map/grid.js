@@ -76,8 +76,8 @@ function consumeRawGrids(raw) {
              * functional approximation just isn't good enough here...
              * so unless we store a float, this is the other option -
              */
-            const approx = (-100 + 200 * tile / 255) * 10;
-            return Math.round(Math.ceil(approx / 5) * 5);
+            const approx = Math.round((-100 + 200 * tile / 255)) * 10;
+            return Math.ceil(approx / 5) * 5;
         });
     });
 
