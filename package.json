@@ -1,6 +1,6 @@
 {
   "name": "@node-sc2/core",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "A lightweight node.js framework to facilitate writing agents (or 'bots') for Starcraft II in JavaScript.",
   "main": "sc2.js",
   "typings": "sc2.d.ts",
