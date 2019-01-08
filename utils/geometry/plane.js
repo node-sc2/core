@@ -44,6 +44,7 @@ function distanceAAShapeAndPoint(shape, point) {
  * 
  * @param {Point2D} centerPoint 
  * @param {{ w: number, h: number }} footprint 
+ * @returns {Point2D[]}
  */
 function cellsInFootprint(centerPoint, footprint, includeSelf = true) {
     return Array.from({ length: footprint.w + 1 }).reduce((cells, _, i) => {
