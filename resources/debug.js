@@ -43,8 +43,8 @@ function createDebugger(world) {
                     text: expansions.map((expansion, i) => {
                         return {
                             color: Color.RED,
-                            text: `DISTANCE ORDER ${i} \n COORDS ${JSON.stringify(expansion.townhallPosition)}`,
-                            worldPos: { ...expansion.townhallPosition, z: expansion.zPosition + 3 },
+                            text: `DISTANCE ORDER ${i} \n COORDS ${JSON.stringify(createPoint2D(expansion.townhallPosition))}`,
+                            worldPos: { ...expansion.townhallPosition, z: expansion.zPosition + 0.5 },
                         };
                     }),
                     boxes: [
@@ -107,7 +107,7 @@ function createDebugger(world) {
                             if (!skipText) {
                                 this.setDrawTextWorld(`${id}-text-${i}`, [{
                                     color: wLine.color || defaultColor,
-                                    text: `${id}-${i}`,
+                                    text: wLine.text ? `${wLine.text}` : `${id}-${i}`,
                                     pos: {
                                         x: ((p0.x + p1.x) / 2) - 0.5,
                                         y: ((p0.y + p1.y) / 2) + 0.5 ,
@@ -137,7 +137,13 @@ function createDebugger(world) {
                             const color = cell.color || defaultColor;
                             const size = 1 - (cell.size || opts.size || 0.8);
                             const zPos = opts.zPos || pos.z || world.resources.get().map.getHeight(createPoint2D(pos));
-                            const height = opts.height ? opts.height : opts.cube ? 1 - size : 0.02;
+                            const height = opts.height ?
+                                opts.height :
+                                opts.cube ?
+                                    cell.max ?
+                                        2 - ((1 - size) * 2) :
+                                    1 - size :
+                                0.01;
 
                             if (!skipText) {
                                 this.setDrawTextWorld(`${id}-text-${i}`, [{
@@ -149,10 +155,16 @@ function createDebugger(world) {
                                 });
                             }
 
+                            const max = {
+                                x: (cell.max ? cell.max.x : pos.x) + (1 - (size / 2)),
+                                y: (cell.max ? cell.max.y : pos.y) + (1 - (size / 2)),
+                                z: (cell.max && cell.max.z ? cell.max.z : zPos) + height,
+                            };
+
                             return {
                                 color,
-                                min: { x: pos.x + (size / 2), y: pos.y + (size / 2), z: zPos },
-                                max: { x: pos.x + (1 - (size / 2)), y: pos.y + (1 - (size / 2)), z: zPos + height },
+                                min: { x: pos.x + (size / 2), y: pos.y + (size / 2), z: zPos + 0.02 },
+                                max,
                             };
                         })
                     }
@@ -228,6 +240,22 @@ function createDebugger(world) {
                 }];
             }
         },
+        async createUnit(ureqs) {
+            const unitReqs = Array.isArray(ureqs) ? ureqs : [ureqs];
+
+            const { actions: { _client: client }, map } = world.resources.get();
+
+            return client.debug({
+                debug: unitReqs.map(ureq => ({
+                    createUnit: {
+                        unitType: ureq.unitType,
+                        quantity: ureq.quantity || 1,
+                        owner: ureq.playerId || world.agent.playerId,
+                        pos: ureq.pos || getRandom(map.getMain().areas.areaFill.filter(c => map.isPlaceable(c))),
+                    },
+                }))
+            });
+        }
     };
 }
 
