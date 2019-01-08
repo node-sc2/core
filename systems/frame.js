@@ -48,7 +48,7 @@ const frameSystem = {
 
         const [responseObservation/* , gameInfo */] = incFrameData;
 
-        const { observation } = responseObservation;
+        const { observation, chat } = responseObservation;
         
         frame._previous = {
             _gameLoop: frame._gameLoop,
@@ -60,6 +60,7 @@ const frameSystem = {
         if (observation) {
             frame._gameLoop = observation.gameLoop;
             frame._observation = observation;
+            frame._result = responseObservation.playerResult;
         }
         
         // if (gameInfo) {
@@ -99,6 +100,15 @@ const frameSystem = {
                 unit.removeLabel('command');
             } 
         });
+
+        if (chat.length > 0) {
+            chat.forEach((line) => {
+                events.write({
+                    name: 'chatReceived',
+                    data: line,
+                });
+            });
+        }
 
         /**
          * forward "unit dead" events from the observation
