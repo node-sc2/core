@@ -4,25 +4,25 @@ const debugDrawPlacement = require('debug')('sc2:DrawPlacementMap');
 const debugDrawMap = require('debug')('sc2:DrawDebugMap');
 const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 const debugDebug = require('debug')('sc2:debug:MapSystem');
-const debugSilly = require('debug')('sc2:silly:MapSystem');
+const silly = require('debug')('sc2:silly:MapSystem');
 const hullJs = require('hull.js');
 const bresenham = require('bresenham');
 const createSystem = require('./index');
 const { consumeRawGrids, consumeImageData } = require('../utils/map/grid');
-const findClusters = require('../utils/map/cluster');
+const { createClusters: findClusters } = require('../utils/map/cluster');
 const createExpansion = require('../engine/create-expansion');
 const floodFill = require('../utils/map/flood');
 const { distanceAAShapeAndPoint } = require('../utils/geometry/plane');
 const { distance, avgPoints, areEqual, closestPoint, createPoint2D} = require('../utils/geometry/point');
 const { frontOfGrid } = require('../utils/map/region');
 const { gridsInCircle } = require('../utils/geometry/angle');
-const { MineralField, getFootprint } = require('../utils/geometry/units');
+const { MineralField, VespeneGeyser, Townhall, getFootprint } = require('../utils/geometry/units');
 const { cellsInFootprint } = require('../utils/geometry/plane');
-const { debugGrid } = require('../utils/map/grid');
 const { Alliance } = require('../constants/enums');
 const { MapDecompositionError } = require('../engine/errors');
 const Color = require('../constants/color');
-const { vespeneGeyserTypes } = require('../constants/groups');
+const { UnitTypeId } = require('../constants/');
+const { vespeneGeyserTypes, unbuildablePlateTypes, mineralFieldTypes } = require('../constants/groups');
 
 /**
  * 
@@ -31,8 +31,8 @@ const { vespeneGeyserTypes } = require('../constants/groups');
  */
 function updateAreas(world, expansion) {
     const { map, debug } = world.resources.get();
-    const { townhallPosition: thPos, cluster: { mineralFields } } = expansion;
-
+    const { townhallPosition: thPos, cluster: { mineralFields, vespeneGeysers } } = expansion;
+    
     const isStartingLocation = (
         // is own base
         distance(map.getLocations().self, thPos) < 5 || 
@@ -47,31 +47,32 @@ function updateAreas(world, expansion) {
         Math.trunc(thPos.y),
         null,
         104,
-        isStartingLocation ? false : 15,
+        isStartingLocation ? false : 16,
     );
 
     const mineralLine = placementGrid
         .filter(gridPoint => {
-            return mineralFields.some(field => {
+            return [...mineralFields, ...vespeneGeysers].some(resource => {
+                const thShape = Townhall(thPos);
+                const shape = resource.isMineralField() ? MineralField(resource.pos) : VespeneGeyser(resource.pos);
                 return (
-                    distanceAAShapeAndPoint(MineralField(field), gridPoint) < 3.5 &&
-                    distance(gridPoint, thPos) < 7
+                    distanceAAShapeAndPoint(shape, gridPoint) < 4
+                    && distanceAAShapeAndPoint(thShape, gridPoint) < 3
                 );
             });
         });
 
-    // expansion.mineralFieldCluster.units.forEach(field => {
-    //     const sym = field.unitType === 665 ? 'm' : 'M';
-    //     grid[Math.trunc(field.pos.y)][Math.trunc(field.pos.x)] = sym;
-    //     grid[Math.trunc(field.pos.y)][Math.trunc(field.pos.x) - 1] = sym;
-    // });
-
     const behindMineralLine = placementGrid
         .filter(gridPoint => {
-            return mineralFields.some(field => {
+            return mineralFields.some(resource => {
+                const thShape = Townhall(thPos);
+                const shape = MineralField(resource.pos);
+                const distanceResource = distanceAAShapeAndPoint(shape, gridPoint);
+                const distanceTownhall = distanceAAShapeAndPoint(thShape, gridPoint);
                 return (
-                    distanceAAShapeAndPoint(MineralField(field), gridPoint) < 5 &&
-                    distance(gridPoint, thPos) > 8.5
+                    distanceResource < 5
+                    && distanceTownhall > 4
+                    && distanceTownhall > distanceResource
                 );
             });
         });
@@ -82,7 +83,7 @@ function updateAreas(world, expansion) {
         Math.trunc(thPos.y),
         null,
         104,
-        isStartingLocation ? false : 15,
+        isStartingLocation ? false : 16,
     );/* .filter((point) => {
         return !mineralLine.find(pos => pos.x === point.x && pos.y === point.y);
     }); */ // why were we doing this? The area fill should probably include the mineral line, no?
@@ -104,9 +105,6 @@ function updateAreas(world, expansion) {
 
     return {
         ...expansion,
-        getWall() {
-            return this.areas.wall;
-        },
         areas: {
             areaFill,
             hull,
@@ -274,29 +272,25 @@ function calculateExpansions(world) {
 
     let expansions;
     try {
-        expansions = findClusters(mineralFields)
-        .map((cluster) => {
-            return Object.assign(cluster,  {
-                vespeneGeysers: vespeneGeysers.filter((geyser) => {
-                    return distance(geyser.pos, cluster.centroid) <= 12;
-                })
-            });
-        })
-        .map(cluster => createExpansion(world, cluster))
-        .map((expansion) => {
-            const start = createPoint2D(expansion.townhallPosition);
-            start.x = start.x + 3;
+        expansions = findClusters([...mineralFields, ...vespeneGeysers])
+            .map(cluster => createExpansion(world, cluster))
+            .map((expansion) => {
+                const start =  { ...expansion.townhallPosition };
+                start.x = start.x + 3;
 
-            const paths = {
-                pathFromMain: map.path(start, pathingSL),
-                pathFromEnemy: map.path(start, pathingEL),
-            };
+                const paths = {
+                    pathFromMain: map.path(start, pathingSL),
+                    pathFromEnemy: map.path(start, pathingEL),
+                };
 
-            return Object.assign(expansion, paths);
-        })
-        .sort((a, b) => a.pathFromMain.length - b.pathFromMain.length)
-        .map(expansion => updateAreas(world, expansion))
-        .map(expansion => Object.assign(expansion, { centroid: avgPoints(expansion.areas.areaFill) }));
+                if (paths.pathFromEnemy.length === 0) paths.pathFromEnemy.length = 999;
+                if (paths.pathFromMain.length === 0) paths.pathFromMain.length = 999;
+
+                return Object.assign(expansion, paths);
+            })
+            .sort((a, b) => a.pathFromMain.length - b.pathFromMain.length)
+            .map(expansion => updateAreas(world, expansion))
+            .map(expansion => Object.assign(expansion, { centroid: avgPoints(expansion.areas.areaFill) }));
 
         expansions[0].base = mainBase.tag;
 
@@ -337,6 +331,30 @@ const mapSystem = {
         map.setRamps(calculateRamps(map._grids.miniMap).map((rPoint) => {
             return Object.assign(rPoint, { z: map.getHeight(rPoint) });
         }));
+        
+        // mark cells under geysers, destructable plates, and mineral fields as initially unplaceable
+        const geysers = units.getGasGeysers();
+        const fields = units.getByType(mineralFieldTypes);
+        const plates = units.getByType(unbuildablePlateTypes);
+
+        // unpathable or placeable
+        [...geysers, ...fields].forEach(blocker => {
+            const footprint = getFootprint(blocker.unitType);
+            const blockedCells = cellsInFootprint(createPoint2D(blocker.pos), footprint);
+
+            blockedCells.forEach(cell => {
+                map.setPlaceable(cell, false);
+                map.setPathable(cell, false);
+            });
+        });
+
+        // unplaceable only
+        plates.forEach(plate => {
+            const footprint = getFootprint(plate.unitType);
+            const blockedCells = cellsInFootprint(createPoint2D(plate.pos), footprint);
+
+            blockedCells.forEach(cell => map.setPlaceable(cell, false));
+        });
 
         // debug.setDrawCells('ramps', map._ramps.map(r => ({ pos: r })), { size: 0.5, cube: true });
         calculateExpansions(world);
@@ -381,7 +399,7 @@ const mapSystem = {
 
         if (newEffects.length >= 1) {
             newEffects.forEach((effect) => {
-                debugSilly('New Effect!', effect);
+                silly('New Effect!', effect);
 
                 events.write({
                     name: 'newEffect',
@@ -406,8 +424,8 @@ const mapSystem = {
         if (expiredEffects.length >= 1) {
             expiredEffects.forEach((effect) => {
                 const effectData = data.getEffectData(effect.effectId);
-                debugSilly('Expired effect!', effect);
-                debugSilly('Effect Data:', effectData);
+                silly('Expired effect!', effect);
+                silly('Effect Data:', effectData);
 
                 events.write({
                     name: 'expiredEffect',
@@ -452,10 +470,29 @@ const mapSystem = {
             );
         }
     },
-    async onUnitFinished({ resources }, newUnit) {
-        const { frame, map } = resources.get();
+    async onUnitCreated({ resources }, newUnit) {
+        const { map, frame } = resources.get();
+
+        if (newUnit.isStructure()) {
+            const { pos } = newUnit;
+            const footprint = getFootprint(newUnit.unitType);
+
+            const blockedCells = cellsInFootprint(createPoint2D(pos), footprint);
+
+            blockedCells.forEach(cell => {
+                map.setPlaceable(cell, false);
+                map.setPathable(cell, false);
+            });
+        }
 
         if (newUnit.isTownhall()) {
+            debugDebug(`new townhall detected: ${UnitTypeId[newUnit.unitType]}`);
+
+            /**
+             * @TODO: actually, the below *should* happen on frame 1, this would
+             * allow us to re-sync to existing games without the engine state being
+             * confused about which expansions are occupied...
+             */
             // if the 'townhall' that was just 'created' was the game starting...
             if (frame.getGameLoop() <= 8) return;
 
@@ -472,21 +509,6 @@ const mapSystem = {
             }
         }
     },
-    async onUnitCreated({ resources }, newUnit) {
-        const { map } = resources.get();
-
-        if (newUnit.isStructure()) {
-            const { pos } = newUnit;
-            const footprint = getFootprint(newUnit.unitType);
-
-            const blockedCells = cellsInFootprint(pos, footprint);
-
-            blockedCells.forEach(cell => {
-                map.setPlaceable(cell, false);
-                map.setPathable(cell, false);
-            });
-        }
-    },
     async onUnitDestroyed({ resources }, deadUnit) {
         const { map } = resources.get();
 
@@ -494,7 +516,7 @@ const mapSystem = {
             const { pos } = deadUnit;
             const footprint = getFootprint(deadUnit.unitType);
 
-            const freedCells = cellsInFootprint(pos, footprint);
+            const freedCells = cellsInFootprint(createPoint2D(pos), footprint);
 
             freedCells.forEach(cell => {
                 map.setPlaceable(cell, true);
