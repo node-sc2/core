@@ -3,6 +3,7 @@
 // eslint-disable-next-line
 const Color = require('../constants/color');
 const getRandom = require('../utils/get-random');
+const { cellsInFootprint } = require('../utils/geometry/plane');
 const { add, createPoint2D } = require('../utils/geometry/point');
 
 /**
@@ -10,6 +11,8 @@ const { add, createPoint2D } = require('../utils/geometry/point');
  * @returns {Debugger}
  */
 function createDebugger(world) {
+    const widgetData = {};
+
     /** @type {{ [key: string]: SC2APIProtocol.DebugCommand[] }} */
     let commands = {};
     let tempCommands = {};
@@ -18,6 +21,8 @@ function createDebugger(world) {
         touched: false,
         updateScreen() {
             const { actions: { _client } } = world.resources.get();
+
+            this._drawDebugWidget(widgetData);
 
             const debugCommands = Object.values(commands).reduce((commands, command) => {
                 return commands.concat(command);
@@ -50,9 +55,9 @@ function createDebugger(world) {
                     boxes: [
                         ...expansion.areas.mineralLine.map((point) => {
                             return {
-                                color: Color.GREEN,
+                                color: Color.LIME_GREEN,
                                 min: { x: point.x + 0.25, y: point.y + 0.25 , z: expansion.zPosition },
-                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.03 },
+                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.04 },
                             };
                         }),
                         ...expansion.areas.behindMineralLine.map((point) => {
@@ -64,7 +69,7 @@ function createDebugger(world) {
                         }),
                         ...expansion.areas.areaFill.map((point) => {
                             return {
-                                color: Color.BLACK,
+                                color: Color.GRAY,
                                 min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
                                 max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.01 },
                             };
@@ -73,9 +78,17 @@ function createDebugger(world) {
                             return {
                                 color: Color.YELLOW,
                                 min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
-                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.04 },
+                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.03 },
                             };
                         }),
+                        ...cellsInFootprint(expansion.townhallPosition, { w: 5, h: 5 }).map((point) => {
+                            return {
+                                color: Color.FUCHSIA,
+                                min: { x: point.x + 0.25, y: point.y + 0.25, z: expansion.zPosition },
+                                max: { x: point.x + 0.75, y: point.y + 0.75, z: expansion.zPosition + 0.05 },
+                            };
+                        })
+
                     ],
                     spheres: [
                         {
@@ -239,6 +252,34 @@ function createDebugger(world) {
                     }
                 }];
             }
+        },
+        useDebugWidget(id, data, opts) {
+            widgetData[id] = { data, opts };
+        },
+        _drawDebugWidget(widgetData) {
+            const widgetText = Object.entries(widgetData).reduce((widgets, [id, widget]) => {
+                const { data, opts } = widget;
+                const title = opts.title ? `${opts.title}\n` : `${id}\n`;
+                const payload = `${title}${data}\n`;
+                return widgets.concat(payload);
+            }, []);
+
+            const widgetTitle = 'Global Debug Widget  \n';
+            const underline = '-'.repeat(widgetTitle.length - 1) + '\n'; // eslint-disable-line
+
+            this.setDrawTextScreen('GlobalDebugWidget', [{
+                size: 16,
+                color: Color.YELLOW,
+                pos: { x: 0.005, y: 0.4 },
+                // eslint-disable-next-line
+                text: `${widgetTitle}${underline}`,
+            }, {
+                size: 12,
+                color: Color.YELLOW,
+                pos: { x: 0.005, y: 0.43 },
+                // eslint-disable-next-line
+                text: widgetText.join('\n'),
+            }]);
         },
         async createUnit(ureqs) {
             const unitReqs = Array.isArray(ureqs) ? ureqs : [ureqs];
