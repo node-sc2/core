@@ -350,7 +350,7 @@ function createActionManager(world) {
 
                 // @FIXME: race-specific stuff should be Proxy'd and not conditional like this, ugly
                 if (world.agent.race === Race.PROTOSS) {
-                    const builderWorkers = units.getConstructingWorkers().filter(w => w.hasLabel('stuck'));
+                    const builderWorkers = units.getConstructingWorkers().filter(w => !w.hasLabel('stuck'));
                     if (builderWorkers.length > 0) {
                         [builder] = units.getClosest(pos || target.pos, builderWorkers);
                         if (distance(builder.pos, pos || target.pos) < 20) {
