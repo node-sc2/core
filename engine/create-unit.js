@@ -1,15 +1,24 @@
-'use strict';
+"use strict";
 
-const UnitType = require('../constants/unit-type');
-const Ability = require('../constants/ability');
-const { Alliance, WeaponTargetType, Attribute } = require('../constants/enums');
-const { techLabTypes, reactorTypes, workerTypes, gasMineTypes, combatTypes } = require('../constants/groups');
-const { townhallTypes, constructionAbilities } = require('../constants/groups');
+const UnitType = require("../constants/unit-type");
+const Ability = require("../constants/ability");
+const { Alliance, WeaponTargetType, Attribute } = require("../constants/enums");
+const {
+    techLabTypes,
+    reactorTypes,
+    workerTypes,
+    gasMineTypes,
+    combatTypes,
+    mineralFieldTypes,
+    gatheringAbilities,
+    returningAbilities,
+} = require("../constants/groups");
+const { townhallTypes, constructionAbilities } = require("../constants/groups");
 
 /**
  * Unit factory - exclusively for UnitManager use
- * @param {SC2APIProtocol.Unit} unitData 
- * @param {World} world 
+ * @param {SC2APIProtocol.Unit} unitData
+ * @param {World} world
  * @returns {Unit}
  */
 function createUnit(unitData, { data, resources }) {
@@ -31,7 +40,7 @@ function createUnit(unitData, { data, resources }) {
         async toggle(options = {}) {
             const opts = {
                 queue: true,
-                ...options,
+                ...options
             };
 
             if (this.is(UnitType.WARPPRISM)) {
@@ -52,6 +61,9 @@ function createUnit(unitData, { data, resources }) {
         },
         removeLabel(name) {
             return this.labels.delete(name);
+        },
+        hasNoLabels() {
+            return [...this.labels.keys()].length <= 0;
         },
         getLabel(name) {
             return this.labels.get(name);
@@ -86,15 +98,40 @@ function createUnit(unitData, { data, resources }) {
         isWorker() {
             return workerTypes.includes(this.unitType);
         },
+        isMineralField() {
+            return mineralFieldTypes.includes(this.unitType);
+        },
         isGasMine() {
             return gasMineTypes.includes(this.unitType);
+        },
+        isReturning() {
+            return this.orders.some(o => returningAbilities.includes(o.abilityId));
+        },
+        isGathering(type) {
+            return this.orders.some(o => {
+                if (gatheringAbilities.includes(o.abilityId)) {
+                    if (!type) return true;
+
+                    const gatherTarget = units.getByTag(o.targetUnitTag);
+
+                    if (gatherTarget) {
+                        if (type === 'minerals') {
+                            return gatherTarget.isMineralField();
+                        }
+    
+                        if (type === 'vespene') {
+                            return gatherTarget.isGasMine();
+                        }
+                    }
+                }
+            });
         },
         isCurrent() {
             // if this unit wasn't updated this frame, this will be false
             return this.lastSeen === frame.getGameLoop();
         },
         isStructure() {
-            return data.getUnitTypeData(this.unitType).attributes.includes(Attribute.STRUCTURE);
+            return this.data().attributes.includes(Attribute.STRUCTURE);
         },
         hasReactor() {
             const addon = units.getByTag(this.addOnTag);
@@ -108,7 +145,7 @@ function createUnit(unitData, { data, resources }) {
             return this._availableAbilities.includes(Ability.MOVE);
         },
         canShootUp() {
-            return data.getUnitTypeData(unitData.unitType).weapons.some(w => w.type !== WeaponTargetType.GROUND);
+            return this.data().weapons.some(w => w.type !== WeaponTargetType.GROUND);
         },
         update(unit) {
             Object.assign(this, unit, {
@@ -120,7 +157,7 @@ function createUnit(unitData, { data, resources }) {
              * so this is a perf thing - depending on the version of node it actually
              * made a pretty big difference... but as of v10 it seems okay? keeping
              * for posterity -
-             * 
+             *
              * this.displayType = unit.displayType;
              * this.alliance = unit.alliance;
              * this.unitType = unit.unitType;
@@ -163,13 +200,12 @@ function createUnit(unitData, { data, resources }) {
     };
 
     // i promise there's a reason for this that one day i'll figure out
-    switch(alliance) {
+    switch (alliance) {
         case Alliance.ALLY:
         case Alliance.SELF: {
             return {
                 ...unitData,
                 ...blueprint,
-                
             };
         }
         case Alliance.ENEMY: {
