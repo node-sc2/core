@@ -9,8 +9,20 @@ function createFrame() {
         _gameInfo: null,
         _observation: null,
         _previous: null,
+        _render: null,
+        _feature: null,
+        _score: null,
         getObservation() {
             return this._observation;
+        },
+        getRender() {
+            return this._render;
+        },
+        getFeatureLayer() {
+            return this._feature;
+        },
+        getScore() {
+            return this._score;
         },
         getGameInfo() {
             return this._gameInfo;

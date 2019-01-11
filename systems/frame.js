@@ -61,6 +61,9 @@ const frameSystem = {
             frame._gameLoop = observation.gameLoop;
             frame._observation = observation;
             frame._result = responseObservation.playerResult;
+            frame._render = observation.renderData;
+            frame._feature = observation.featureLayerData;
+            frame._score = observation.score;
         }
         
         // if (gameInfo) {
@@ -93,8 +96,9 @@ const frameSystem = {
             const frameDifference = observation.gameLoop - frameCommanded;
             if (frameDifference > 250) {
                 // obviously something went wrong here...
-                debugFrame(`Outstanding unit command after ${frameDifference}ms! removing label`);
+                debugFrame(`Outstanding unit command after ${frameDifference}ms!`);
                 if (unit.isWorker()) {
+                    unit.labels.clear();
                     unit.addLabel('stuck', true);
                 }
                 unit.removeLabel('command');
