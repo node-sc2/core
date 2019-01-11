@@ -2,10 +2,33 @@
 All notable changes to this project will be documented here.
 Please note, this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- [v0.8.2 - 2019-01-11](#v082---2019-01-11)
 - [v0.8.1 - 2019-01-08](#v081---2019-01-08)
 - [v0.8.0 - 2019-01-01](#v080---2019-01-01)
 - [v0.7.1 - 2018-12-17](#v071---2018-12-17)
 - [v0.7.0 - 2018-12-14](#v070---2018-12-14)
+
+## v0.8.2 - 2019-01-11
+## Highlights:
+Another small patch to get out some more important fixes:
+- Launcher fixed for OSX
+- Fixed 'stuck' workers being exclusively selected for building (oops.. RIP)
+- Major map resource / expansion decomposition overhaul
+- Initial support for exposing render and feature layer data 
+
+Various other fixes:
+- Freeing of squares on the placement grid when a unit is destroyed now actually works
+- Associating a new townhall to its base / expansion location also now actually works
+- Initial geyser, mineral field, and ramp plate cells now marked as unplaceable and/or unpathable as appropriate
+- Fix expansion order and pathing on maps with islands or otherwise full blocked expos
+- Fixed calculation of mineral line and behind behind line areas (still not perfect, but a ton better)
+
+Also:
+- default stepIncrement for engine systems bumped to 2
+- sc2:DebugOnScreen now shows active earmarks
+- Added utils/geometry/point getNeighbors()
+- Added utils/map/cluster clusterByNeighbor()
+- Expansion cluster now takes geyser placement into consideration
 
 ## v0.8.1 - 2019-01-08
 ## Highlights:
