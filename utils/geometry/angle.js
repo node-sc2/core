@@ -46,7 +46,7 @@ const randomCirclePoints = (centerPoint, radius, n = 1) => {
  * @param {Point2D} c 
  * @param {{ distance?: number; normalize?: boolean; }} options 
  * @param {Debugger} [debug]
- * @regridsInCircleoint2D>}
+ * @returns {Array<Point2D>}
  */
 const gridsInCircle = (c, r, options = {}, debug) => {
     const opts = {
