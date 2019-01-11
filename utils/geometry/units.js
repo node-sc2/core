@@ -4,13 +4,24 @@ const UnitType = require('../../constants/unit-type');
 const { structureTypes, flyingStructureTypes, townhallTypes, mineralFieldTypes } = require('../../constants/groups');
 
 /**
- * @param {Unit} unit 
+ * @param {Point2D} pos
  */
-function MineralField(unit) {
+function MineralField(pos) {
     return {
-        pos: unit.pos,
+        pos,
         w: 2,
         h: 1,
+    };
+}
+
+/**
+ * @param {Point2D} pos
+ */
+function VespeneGeyser(pos) {
+    return {
+        pos,
+        w: 3,
+        h: 3,
     };
 }
 
@@ -100,4 +111,4 @@ function getFootprint(unitType) {
     }
 }
 
-module.exports = { MineralField, Townhall, getFootprint };
+module.exports = { MineralField, Townhall, VespeneGeyser, getFootprint };
