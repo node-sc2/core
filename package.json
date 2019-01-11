@@ -33,7 +33,7 @@
     "lodash.xor": "^4.5.0",
     "memoizee": "^0.4.14",
     "pascal-case": "^2.0.1",
-    "pathfinding": "jbrown123/PathFinding.js",
+    "pathfinding": "github:jbrown123/PathFinding.js",
     "promise.map": "0.0.2",
     "protobufjs": "^6.8.8",
     "range": "0.0.3",
