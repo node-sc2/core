@@ -1,6 +1,7 @@
 'use strict';
 
 const { vespeneGeyserTypes } = require('../../constants/groups');
+const { add, multiply, divide, areEqual, distanceSquared, getNeighbors } = require('../geometry/point');
 
 /**
  * Creates clusters of units by distance between them. Right now only used for expansions.
@@ -36,7 +37,7 @@ function createClusters(units, distanceApart = 15.0) {
             if (isGeyser) {
                 target.vespeneGeysers = [...target.vespeneGeysers, u];
             } else {
-            target.mineralFields = [...target.mineralFields, u];
+                target.mineralFields = [...target.mineralFields, u];
             }
             
             const size = target.mineralFields.length + target.vespeneGeysers.length;
@@ -46,4 +47,43 @@ function createClusters(units, distanceApart = 15.0) {
     }, []);
 }
 
-module.exports = createClusters;
+/**
+ * returns a cluster set where each cluster contains neighbor chains
+ * @param {Array<Point2D>} points 
+ * @returns {Point2D[][]}
+ */
+function clusterByNeighbor(points) {
+    const sorted = points.slice().sort((a, b) => {
+        if (a.y < b.y) {
+            return -1;
+        } else if (a.y > b.y) {
+            return 1;
+        } else {
+            if (a.x < b.x) {
+                return -1;
+            } else if (a.x > b.x) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    });
+
+    const cluster = sorted.reduce((sets, point) => {
+        const setContainingNeighbors = sets.find(set => set.some((setPoint) => {
+            return getNeighbors(setPoint).some(spn => areEqual(spn, point));
+        }));
+
+        if (setContainingNeighbors) {
+            setContainingNeighbors.push(point);
+        } else {
+            sets.push([point]);
+        }
+
+        return sets;
+    }, []);
+
+    return cluster;
+}
+
+module.exports = { createClusters, clusterByNeighbor };
