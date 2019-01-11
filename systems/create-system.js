@@ -22,7 +22,7 @@ function createSystem(sys, opts = {}) {
         ...opts,
     };
 
-    const { stepIncrement = sys.type === 'agent' ? 8 : 1 } = options;
+    const { stepIncrement = sys.type === 'agent' ? 8 : 2 } = options;
 
     const pauseSym = Symbol('pause');
     
