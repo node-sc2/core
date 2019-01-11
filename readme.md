@@ -7,6 +7,7 @@
 - [Getting started](#getting-started)
     - [Hello World](#hello-world)
 - [Overview and Tutorial](#overview-and-tutorial)
+- [Feature Layer and Rendered Interfaces](#feature-layer-and-rendered-interfaces)
 - [Notice of Active Development](#notice-of-active-development)
 - [Contributing](#contributing)
 - [Ladder and Tournament Submission](#ladder-and-tournament-submission)
@@ -59,6 +60,44 @@ Now you can run it with `node main.js`. Wasn't that easy? Now this isn't going t
 
 ### Overview and Tutorial
 An overview of the library and its usage is available by clicking [here](docs/overview.md). The overview is the recommended place to get started. If you want to skip it and go straight to a tutorial of a bot that can consistently win against the built-in Elite AI, click [here](docs/tutorial.md).
+
+### Feature Layer and Rendered Interfaces
+Although most of the supported features of `node-sc2` are based on the raw data interface, there *is* initial support for both the Feature Layer and the Rendered interfaces. Importantly, you must set your `NODE_ENV` to `production` if you don't want the rendered interface to crawl (unless you need long stack trace support). For example, on windows that would be: `set NODE_ENV=production`. The feature layer interface is pretty slow either way (on windows, linux should be significantly better). Currently there are no abstractions but you can get access the exposed data as such:
+
+```js
+/** @type {SC2APIProtocol.SpatialCameraSetup} */
+const camera = {
+    // you can experiment with various resolutions
+    resolution: {
+        x: 640,
+        y: 480,
+    },
+    // you can also leave this off if you don't want the minimap to render
+    minimapResolution: {
+        x: 128,
+        y: 128,
+    }
+};
+
+// the 'interface' prop of your agent blueprint is of SC2APIProtocol.InterfaceOptions
+const bot = createAgent({
+    settings: {
+        race: Race.PROTOSS,
+    },
+    interface: {
+        raw: true,
+        score: true, // optional, score data
+        render: camera, // turns on the rendered interface
+        featureLayer: camera, // turns on the feature layer interface
+    },
+    async onStep(world) {
+        const { frame } = world.resources.get();
+        console.log(frame.getRender(), frame.getFeatureLayer());
+    }
+});
+```
+
+The shape of the data is of types `SC2APIProtocol.ObservationRander` and `SC2APIProtocol.ObservationFeatureLayer`. More can be read about it in the blizzard proto definitions.
 
 ### Notice of Active Development
 The goal of `@node-sc2/core` is to use semver. As long as `@node-sc2/core` is pre v1.0.0, the library is under very active development. It may be missing obvious features, even ones that are simple to implement. It may expose APIs that are fundimentally broken. It *may* even break backwards compatibility (although we're going to try really hard not to without major version bumps). The goal is to get to v1.0.0 rapidly and remove this notice.
