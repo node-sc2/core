@@ -17,7 +17,6 @@ const { Race, StatusId } = require('../constants/enums');
 const { NodeSC2Error, GameEndedError } = require('./errors');
 
 // const STEP_DELAY_MIN = 33;
-
 const STEP_COUNT = parseInt(process.env.STEP_COUNT, 10) || 4;
 
 const NOOP = () => {};
@@ -25,6 +24,12 @@ const NOOP = () => {};
 // function calculateDelay(ms) {
 //     const attemptDelay = parseInt((STEP_DELAY_MIN - ms).toFixed(2), 10);
 //     return attemptDelay > 0 ? attemptDelay : 0;
+// }
+
+// Hack to compile Glob files. Don´t call this function!
+// Update: turns out this hack breaks bundling, how ironic :p
+// function ಠ_ಠ() {
+//     require('views/**/*.js', { glob: true });
 // }
 
 /**
@@ -54,6 +59,8 @@ function createEngine(options = {}) {
 
     /** @type {Engine} */
     const engine = {
+        _totalLoopDelay: 0,
+        _gameLeft: false,
         launcher,
         use(sys) {
             if (Array.isArray(sys)) {
@@ -71,23 +78,17 @@ function createEngine(options = {}) {
             const pingRes = await _client.connect(opts);
 
             /** 
-             * this should really never happen - but we have to account for
-             * strange issues dealing with the last frame. If we get here somehow,
-             * at least the game end event things still happen and there can be some
-             * clean up logic from the user side of things...
-             * 
-             * @FIXME: in theory this could trigger onGameEvent twice... add an internal
-             * symbol on the engine to denote that it was already fired and suppress this
-             * and its warning -
-             * 
              * @TODO: @node-sc2/proto should be throwing a custom error type here so we
              * can safely expect what the error shape is -
              */
+
             _client._ws.on('error', (e) => {
                 // @ts-ignore
-                if (e.err[0] === 'Game has already ended') {
-                    engine.onGameEnd([]);
-                }
+                debugEngine('Received error from transport layer:', e);
+            });
+
+            _client._ws.on('leftGame', () => {
+                this._gameLeft = true;
             });
 
             return pingRes;
@@ -230,6 +231,10 @@ function createEngine(options = {}) {
             return this.runLoop();
         },
         onGameEnd(results) {
+            if (!results || results.length <= 0) {
+                console.warn('The game ended but there is no result data');
+            }
+            debugEngine(`Average step delay for this game: ${this._totalLoopDelay / world.resources.get().frame.getGameLoop()}`);
             // @TODO: have some option to configure auto-saving of replays
             return [world, results];
         },
@@ -238,11 +243,13 @@ function createEngine(options = {}) {
 
             if (_client.status !== 3) {
                 debugEngine('exiting loop, status no longer in game');
-                process.exit();
+                this.onGameEnd(frame._result);
+                // @TODO: check the frame to see if there happens to be some result data?
+                throw new GameEndedError('Status no longer in game');
             }
 
-            if (this.lastRequest) {
-                this.loopDelay = hrtimeH(process.hrtime(this.lastRequest)).milliseconds;
+            if (this._lastRequest) {
+                this._loopDelay = hrtimeH(process.hrtime(this._lastRequest)).milliseconds;
 
                 /** 
                  * I'd like to keep this here. I think as long as this api is aligned to providing a framework
@@ -251,9 +258,11 @@ function createEngine(options = {}) {
                  * 
                  * @TODO: maybe allow this to be configurable? not off... per se, but some threshhold.
                  */
-                if (this.loopDelay / STEP_COUNT > 44.6) {
-                    console.warn(`WARNING! loop delay is ${this.loopDelay / STEP_COUNT}ms, greater than realtime of 44ms`);
+                if (this._loopDelay / STEP_COUNT > 44.6) {
+                    // console.warn(`WARNING! loop delay is ${this._loopDelay / STEP_COUNT}ms, greater than realtime`);
                 }
+
+                this._totalLoopDelay += this._loopDelay / STEP_COUNT;
 
                 /**
                  * this was here for testing, but we could use it in the future to implement realtime
@@ -266,7 +275,11 @@ function createEngine(options = {}) {
                  */
             }
 
-            this.lastRequest = process.hrtime();
+            this._lastRequest = process.hrtime();
+
+            if (process.env.DELAY) {
+                await Promise.delay(parseInt(process.env.DELAY, 10));
+            }
 
             await _client.step({ count: STEP_COUNT });
 
@@ -284,14 +297,13 @@ function createEngine(options = {}) {
                     // game over dude, we outtie
                     return this.onGameEnd(e.data);
                 } else {
-                    console.warn(e)
+                    console.warn('An error of an unknown type has propegated up to the game loop', e);
                     throw e;
                 }
             }
 
             return this.runLoop();
-        }
-        ,
+        },
         async dispatch() {
             /**
              * First, run all engine systems, and in series - the 'step' event propegates
@@ -346,7 +358,7 @@ function createEngine(options = {}) {
             // debug system runs last because it updates the in-client debug display
             return debugSystem(world);
         },
-        lastRequest: null,
+        _lastRequest: null,
     };
 
     engine.use([
