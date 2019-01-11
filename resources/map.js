@@ -336,7 +336,7 @@ function createMapManager(world) {
             const shapePoints = cellsInFootprint(pos, footprint);
 
             if (opts.graph) {
-                return shapePoints.every(point => opts.graph.isWalkableAt(point.x, point.y))
+                return shapePoints.every(point => opts.graph.isWalkableAt(point.x, point.y));
             } else {
                 return shapePoints.every(point => this.isPlaceable(point));
             }
