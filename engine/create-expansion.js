@@ -16,7 +16,10 @@ function createExpansion(world, cluster) {
         cluster,
         labels: new Map(),
         zPosition: cluster.mineralFields[0].pos.z,
-        townhallPosition: townhallPlacement(cluster.centroid, cluster.mineralFields),
+        townhallPosition: townhallPlacement(world, cluster.centroid, cluster.mineralFields, cluster.vespeneGeysers),
+        getWall() {
+            return this.areas.wall;
+        },
         getBase() {
             if (this.base) {
                 return units.getByTag(this.base);
