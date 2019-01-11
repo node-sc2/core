@@ -3,7 +3,11 @@
 const debugEngine = require('debug')('sc2:debug:engine');
 const debugSilly = require('debug')('sc2:silly:engine');
 const Promise = require('bluebird');
-const argv = require('yargs').argv;
+const argv = require('yargs')
+    .number('StartPort')
+    .number('GamePort')
+    .string('LadderServer')
+    .argv;
 const pascalCase = require('pascal-case');
 // const chalk = require('chalk');
 const hrtimeH = require('convert-hrtime');
@@ -159,7 +163,7 @@ function createEngine(options = {}) {
                     };
 
                     if (isManaged) {
-                        let sPort = argv.StartPort + 1;
+                        let sPort = /** @type {number} */ argv.StartPort + 1;
 
                         participant = {
                             ...participant,
