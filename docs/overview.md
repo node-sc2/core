@@ -2,7 +2,24 @@
 `node-sc2` aims to expose layers of abstraction that grow with the decreasing naivety of an agent in development. In other words, very simple bots can be created with very simple abstractions, while complex agents can take advantage of increasingly complex abstractions as they grow. The worker rush code in the readme is an example of a very simple abstraction, now we'll look into some slightly more complex ones, hopefully they build one on the next.
 
 ## Event Consumers
-All logic *that is aware of the game context* is contained within functions provided by event consumers. An example in the worker rush snippet is the `onGameStart` method of the agent blueprint. Almost everything accessible in `node-sc2` implements the trait of `EventConsumer`. That is, they accept methods to consume events (similar to event listeners in other javascript environments). Built-in (or 'engine' level) consumers provided by `node-sc2` are currently as follows: `onGameStart`, `onStep`, `onUpgradeComplete`, `onUnitCreated`, `onUnitFinished`, `onUnitIdle`, `onUnitDamaged`, `onUnitDestroyed`, and `onEnemyFirstSeen`. This list will likely continue to grow as we move events from userland to core. You can read more about Events in details (including `EventConsumer` and the `EventChannel`) in the API Reference and the other internal docs.
+All logic *that is aware of the game context* is contained within functions provided by event consumers. An example in the worker rush snippet is the `onGameStart` method of the agent blueprint. Almost everything accessible in `node-sc2` implements the trait of `EventConsumer`. That is, they accept methods to consume events (similar to event listeners in other javascript environments). Built-in (or 'engine' level) consumers provided by `node-sc2` are currently as follows:
+- `onGameStart`
+- `onStep`
+- `onUpgradeComplete`
+- `onUnitCreated` (new own-unit this frame)
+- `onUnitFinished` (existing unit whose build progress has hit 1)
+- `onUnitIdle`
+- `onUnitDamaged`
+- `onUnitDestroyed`
+- `onEnemyFirstSeen`
+- `onUnitHasEngaged`
+- `onUnitHasDisengaged`
+- `onUnitHasSwitchedTargets`
+- `onNewEffect`
+- `onExpiredEffect`
+- `onChatReceived`
+
+This list may continue to grow, but it can also be augmented via modules and plugins. You can read more about Events in details (including `EventConsumer` and the `EventChannel`) in the API Reference and the other internal docs.
 
 ## World
 The first argument given to all event consumer methods is the `world`. The `world` is the context of a single game of Starcraft 2, and the easiest way to utilize it is by destructuring as follows:

@@ -481,6 +481,7 @@ type EventConsumer = {
     onEnemyFirstSeen?: UnitEvent;
     onUnitDestroyed?: UnitEvent;
     onUnitHasEngaged?: UnitEvent;
+    onUnitHasDisengaged?: UnitEvent;
     onUnitHasSwitchedTargets?: UnitEvent;
     onNewEffect?: (world: World, effect: SC2APIProtocol.Effect & SC2APIProtocol.EffectData & {
         effectGrid: Array<Point2D>;
