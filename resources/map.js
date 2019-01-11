@@ -1,9 +1,9 @@
 'use strict';
 
 const PF = require('pathfinding');
-const { enums: { Alliance } } = require('../constants');
-const { distance } = require('../utils/geometry/point');
-const { avgPoints,closestPoint } = require('../utils/geometry/point');
+const debugWeights = require('debug')('sc2:silly:DebugWeights');
+const { enums: { Alliance }, Color } = require('../constants');
+const { add, distance, avgPoints, closestPoint } = require('../utils/geometry/point');
 const { gridsInCircle } = require('../utils/geometry/angle');
 const { cellsInFootprint } = require('../utils/geometry/plane');
 const { gasMineTypes } = require('../constants/groups');
@@ -56,14 +56,21 @@ function createMapManager(world) {
         setPathable(p, pathable = true) {
             const point = createPoint2D(p);
             this._grids.pathing[point.y][point.x] = pathable ? 0 : 1;
+            this._graph.setWalkableAt(p.x, p.y, pathable);
         },
-        isPlaceable(p) {
+        isPlaceable(p, opts = {}) {
             const point = createPoint2D(p);
-            return !!this._grids.placement[point.y][point.x];
+
+            if (opts.graph) {
+                return opts.graph.isWalkableAt(point.x, point.y);
+            } else {
+                return !!this._grids.placement[point.y][point.x];
+            }
         },
         setPlaceable(p, placeable = true) {
             const point = createPoint2D(p);
             this._grids.placement[point.y][point.x] = placeable ? 1 : 0;
+            this._graph.setWalkableAt(p.x, p.y, placeable);
         },
         isVisible(p) {
             const point = createPoint2D(p);
@@ -106,9 +113,9 @@ function createMapManager(world) {
         },
         getExpansions(alliance) {
             if (alliance === Alliance.ENEMY) {
-                return this._expansionsFromEnemy;
+                return this._expansionsFromEnemy.slice();
             } else {
-                return this._expansions;
+                return this._expansions.slice();
             }
         },
         getOccupiedExpansions(alliance = Alliance.SELF) {
@@ -126,17 +133,27 @@ function createMapManager(world) {
                 return !currentBase || currentBase.labels.has('dead');
             });
         },
+        closestPathable(point, r = 3) {
+            const allPathable = gridsInCircle(point, r, { normalize: true })
+                .filter(p => this.isPathable(p));
+            return closestPoint(point, allPathable);
+        },
         /**
          * Find the closest expansion to a point
          */
         getClosestExpansion(point) {
-            const expansionOrder = this._expansions.slice();
+            const startPoint = this.isPathable(point) ?
+                point :
+                this.closestPathable(point);
+
+            const expansionOrder = this.getExpansions();
             const { index: closestIndex } = expansionOrder.map((expansion, i) => {
                 return {
                     index: i,
-                    distance: distance(expansion.townhallPosition, point),
+                    distance: this.path(startPoint, add(expansion.townhallPosition, 3)).length,
                 };
             })
+            .filter(exp => exp.distance > 0)
             .sort((a, b) => a.distance - b.distance)[0];
 
             return expansionOrder[closestIndex];
@@ -282,54 +299,68 @@ function createMapManager(world) {
                     });
                 });
 
-                // world.resources.get().debug.setDrawCells('weights', newGraph.nodes.reduce((cells, row, y) => {
-                //     row.forEach((node, x) => {
-                //         if (node.walkable && node.weight > 1) {
-                //             cells.push({
-                //                 pos: {x, y},
-                //                 text: `W: ${node.weight}`,
-                //                 color: node.weight <= 1 ? Color.LIME_GREEN : node.weight <= 5 ? Color.YELLOW : node.weight <= 20? Color.ORANGE_RED : Color.RED,
-                //             });
-                //         }
-                //     });
+                if (debugWeights.enabled) {
+                    world.resources.get().debug.setDrawCells('debugWeights', newGraph.nodes.reduce((cells, row, y) => {
+                        row.forEach((node, x) => {
+                            if (node.walkable && node.weight > 1) {
+                                cells.push({
+                                    pos: {x, y},
+                                    text: `W: ${node.weight}`,
+                                    color: 
+                                        node.weight <= 1 ? Color.LIME_GREEN :
+                                            node.weight <= 5 ? Color.YELLOW :
+                                                node.weight <= 20 ? Color.ORANGE_RED :
+                                                    Color.RED,
+                                });
+                            }
+                        });
 
-                //     return cells;
-                // }, []));
+                        return cells;
+                    }, []));
+                }
 
                 this._graph = newGraph;
             }
         },
         setExpansions(exps) {
-            this._expansions = exps;
-            this._expansionsFromEnemy = this._expansions.slice().sort((a, b) => a.pathFromEnemy.length - b.pathFromEnemy.length);
+            this._expansions = Object.freeze(exps);
+            this._expansionsFromEnemy = Object.freeze(
+                this._expansions.slice().sort((a, b) => a.pathFromEnemy.length - b.pathFromEnemy.length)
+            );
         },
         setRamps(ramps) {
             this._ramps = ramps;
         },
-        isPlaceableAt(unitType, pos) {
+        isPlaceableAt(unitType, pos, opts =  {}) {
             const footprint = getFootprint(unitType);
             const shapePoints = cellsInFootprint(pos, footprint);
 
-            return shapePoints.every(point => this.isPlaceable(point));
+            if (opts.graph) {
+                return shapePoints.every(point => opts.graph.isWalkableAt(point.x, point.y))
+            } else {
+                return shapePoints.every(point => this.isPlaceable(point));
+            }
+            
         },
         path(start, end, opts = {}) {
             const begin = createPoint2D(start);
             const finish = createPoint2D(end);
 
-            const exists = determinedPaths.find(path => (
-                path.begin.x === begin.x &&
-                path.begin.y === begin.y &&
-                path.finish.x === finish.x &&
-                path.finish.y === finish.y
-            ));
+            if (!opts.force) {
+                const exists = determinedPaths.find(path => (
+                    path.begin.x === begin.x &&
+                    path.begin.y === begin.y &&
+                    path.finish.x === finish.x &&
+                    path.finish.y === finish.y
+                ));
 
-            if (exists) return exists.result;
+                if (exists) return exists.result;
+            }
 
             const graphClone = opts.graph ? opts.graph.clone() : this._graph.clone();
 
             const finder = new PF.AStarFinder({
                 allowDiagonal: opts.diagonal !== undefined ? opts.diagonal : true,
-                //heuristic: PF.Heuristic.euclidien,
                 heuristic: PF.Heuristic.mahattan,
             });
 
