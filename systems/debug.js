@@ -40,7 +40,7 @@ module.exports = createSystem({
             },
         });
     },
-    async onStep({ resources }) {
+    async onStep({ data, resources }) {
         const { debug, units } = resources.get();
 
         if (this.state.debugOnScreen) {
@@ -110,6 +110,16 @@ module.exports = createSystem({
                     }).join('\n');
                     return heading + data;
                 }).join('\n\n'),
+            }]);
+
+            debug.setDrawTextScreen('earmarks', [{
+                size: 12,
+                color: Color.AQUA,
+                pos: { x: 0.005, y: 0.3 },
+                // eslint-disable-next-line
+                text: 'Current Earmarks\n' + data.get('earmarks').map((earmark) => {
+                    return `${earmark.name}: ${earmark.minerals}m, ${earmark.vespene}v`;
+                }).join('\n')
             }]);
         }
 
