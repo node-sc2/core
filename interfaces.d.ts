@@ -135,23 +135,28 @@ interface Unit extends SC2APIProtocol.Unit {
     _availableAbilities: Array<number>;
     noQueue?: boolean;
     lastSeen?: number;
+    labels: Map<string, any>;
     abilityAvailable: (abilityId: number) => boolean;
     availableAbilities: () => Array<number>;
     data: () => SC2APIProtocol.UnitTypeData;
-    is: () => boolean;
+    is: (unitType: UnitTypeId) => boolean;
     isCombatUnit: () => boolean;
     isFinished: () => boolean;
     isWorker: () => boolean;
     isTownhall: () => boolean;
     isGasMine: () => boolean;
-    isCurrent: () => boolean;
+    isMineralField: () => boolean;
     isStructure: () => boolean;
+    isCurrent: () => boolean;
+    isHolding: () => boolean;
+    isGathering: (type?: 'minerals' | 'vespene') => boolean;
     hasReactor: () => boolean;
     hasTechLab: () => boolean;
+    hasNoLabels: () => boolean;
     canMove: () => boolean;
+    canShootUp: () => boolean;
     update: (unit: SC2APIProtocol.Unit) => void;
     toggle: (options: AbilityOptions) => Promise<SC2APIProtocol.ResponseAction>;
-    labels: Map<string, any>;
     addLabel: (name: string, value: any) => Map<string, any>;
     hasLabel: (name: string) => boolean;
     getLabel: (name: string) => any;
@@ -241,12 +246,18 @@ type Locations = {
     enemy: Point2D[];
 }
 
+type MapPathOptions = {
+    graph?: any;
+    force?: boolean
+    diagonal?: boolean;
+}
+
 interface MapResource {
     _activeEffects: Array<SC2APIProtocol.Effect>;
     _grids: Grids;
     _locations: Locations;
-    _expansions: Expansion[];
-    _expansionsFromEnemy: Expansion[];
+    _expansions: ReadonlyArray<Expansion>;
+    _expansionsFromEnemy: ReadonlyArray<Expansion>;
     _graph: any;
     _mapState: {
         creep: Grid2D;
@@ -281,6 +292,7 @@ interface MapResource {
     getCombatRally: () => Point2D;
     getSize: () => SC2APIProtocol.Size2DI;
     getCenter: () => Point2D;
+    closestPathable: (point: Point2D) => Point2D;
     setActiveEffects: (currEffects: Array<SC2APIProtocol.Effect>) => void;
     setGrids: (grids: Grids) => void;
     setSize: (mapSize: SC2APIProtocol.Size2DI) => void;
@@ -290,7 +302,7 @@ interface MapResource {
     setLocations: (locations: Locations) => void;
     setMapState: (mapState: { visibility: Grid2D, creep: Grid2D }) => void;
     setRamps: (points: Point3D[]) => void;
-    path: (start: Point2D, end: Point2D, opts?: { graph?: any; diagonal?: boolean; }) => number[][];
+    path: (start: Point2D, end: Point2D, opts?: MapPathOptions) => number[][];
     setExpansions: (expansions: Expansion[]) => void;
 }
 
@@ -306,12 +318,13 @@ type WarpInOptions = {
     maxQty?: number;
     highground?: true;
 }
+
 interface ActionManager {
     _client?: NodeSC2Proto.ProtoClient;
     attack(units?: Unit[], unit?: Unit, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
     attackMove(u?: Unit[], p?: Point2D, queue?: boolean): Promise<SC2APIProtocol.ResponseAction>;
-    build(unitTypeId: number, target: Unit, worker?: Unit): Promise<SC2APIProtocol.ResponseAction>;
-    build(unitTypeId: number, pos: Point2D, worker?: Unit): Promise<SC2APIProtocol.ResponseAction>;
+    build(unitTypeId: number, target?: Unit, worker?: Unit): Promise<SC2APIProtocol.ResponseAction>;
+    build(unitTypeId: number, pos?: Point2D, worker?: Unit): Promise<SC2APIProtocol.ResponseAction>;
     do(abilityId: number, tags: string, opts?: AbilityOptions ): Promise<SC2APIProtocol.ResponseAction>;
     do(abilityId: number, tags: string[], opts?: AbilityOptions): Promise<SC2APIProtocol.ResponseAction>;
     buildGasMine: () => Promise<SC2APIProtocol.ResponseAction>;
@@ -330,7 +343,8 @@ interface ActionManager {
     swapBuildings(unitA: Unit, unitB: Unit): Promise<null>;
     warpIn(unitTypeId: number, opts: WarpInOptions): Promise<SC2APIProtocol.ResponseAction>;
     canPlace: (unitTypeId: number, positions: Point2D[]) => Promise<(Point2D | false)>;
-    sendAction: (unitCommand: (SC2APIProtocol.ActionRawUnitCommand | SC2APIProtocol.ActionRawUnitCommand[])) => Promise<SC2APIProtocol.ResponseAction>;
+    sendAction(unitCommand: SC2APIProtocol.ActionRawUnitCommand): Promise<SC2APIProtocol.ResponseAction>;
+    sendAction(unitCommand: SC2APIProtocol.ActionRawUnitCommand[]): Promise<SC2APIProtocol.ResponseAction>;
     sendQuery: (query: SC2APIProtocol.RequestQuery) => Promise<SC2APIProtocol.ResponseQuery>;
 }
 
@@ -345,6 +359,7 @@ type WPoint = {
     color?: Color;
     size?: number;
     text?: string;
+    max?: SC2APIProtocol.Point;
 }
 
 type ShapeDrawFn = (id: string, points: Array<WPoint>, opts?: {
@@ -372,11 +387,14 @@ type TextDrawFn = (id: string, points: Array<{
 
 type LineDrawFn = (id: string, points: Array<SC2APIProtocol.Line & {
     color?: Color;
+    text: string;
 }>, opts?: {
     zPos?: number;
     color?: Color;
     includeText?: boolean;
 }) => void;
+
+type UnitRequest = Array<SC2APIProtocol.DebugCreateUnit>;
 
 interface Debugger {
     touched: boolean;
@@ -388,6 +406,8 @@ interface Debugger {
     setDrawTextWorld: TextDrawFn;
     setDrawLines: LineDrawFn;
     setDrawTextScreen: TextDrawFn;
+    createUnit(ureqs: UnitRequest): Promise<SC2APIProtocol.ResponseDebug>;
+    createUnit(ureqs: UnitRequest[]): Promise<SC2APIProtocol.ResponseDebug>;
 }
 
 type GameFrame = {
@@ -402,12 +422,19 @@ interface FrameResource {
     _observation?: SC2APIProtocol.Observation;
     _gameInfo?: SC2APIProtocol.ResponseGameInfo;
     _gameLoop: number;
+    _result?: Array<SC2APIProtocol.PlayerResult>;
+    _score: SC2APIProtocol.Score;
+    _render: SC2APIProtocol.ObservationRender;
+    _feature: SC2APIProtocol.ObservationFeatureLayer;
     getObservation: () => SC2APIProtocol.Observation;
     getGameInfo: () => SC2APIProtocol.ResponseGameInfo;
     getGameLoop: () => number;
     getPrevious: () => GameFrame;
     getEffects: () => Array<SC2APIProtocol.Effect>;
     getMapState: () => SC2APIProtocol.MapState;
+    getRender: () => SC2APIProtocol.ObservationRender;
+    getScore: () => SC2APIProtocol.Score;
+    getFeatureLayer: () => SC2APIProtocol.ObservationFeatureLayer;
     timeInSeconds: () => number;
 }
 
@@ -446,6 +473,7 @@ type EventConsumer = {
     onStep?: (world: World, gameLoop: number) => Promise<any>;
     onGameStart?: (world: World) => Promise<any>;
     onUpgradeComplete?: (world: World, upgradeId: number) => Promise<any>;
+    onChatReceived?: (world: World, chat: SC2APIProtocol.ChatReceived) => Promise<any>;
     onUnitIdle?: UnitEvent;
     onUnitDamaged?: UnitEvent;
     onUnitCreated?: UnitEvent;
@@ -540,8 +568,10 @@ type LauncherOptions = {
 type Launcher = (options: LauncherOptions) => NodeJS.Process | number;
 
 interface Engine {
-    lastRequest?: [number, number];
-    loopDelay?: number;
+    _lastRequest?: [number, number];
+    _loopDelay?: number;
+    _totalLoopDelay?: number;
+    _gameLeft: boolean;
     launcher: Launcher;
     use(systems: SystemWrapper<EngineObject>): void;
     use(systems: SystemWrapper<EngineObject>[]): void;
