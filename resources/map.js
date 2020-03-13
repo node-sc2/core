@@ -3,7 +3,7 @@
 const PF = require('pathfinding');
 const debugWeights = require('debug')('sc2:silly:DebugWeights');
 const { enums: { Alliance }, Color } = require('../constants');
-const { add, distance, avgPoints, closestPoint } = require('../utils/geometry/point');
+const { add, distance, avgPoints, closestPoint, areEqual } = require('../utils/geometry/point');
 const { gridsInCircle } = require('../utils/geometry/angle');
 const { cellsInFootprint } = require('../utils/geometry/plane');
 const { gasMineTypes } = require('../constants/groups');
@@ -75,6 +75,10 @@ function createMapManager(world) {
         isVisible(p) {
             const point = createPoint2D(p);
             return !!this._mapState.visibility[point.y][point.x];
+        },
+        isRamp(p) {
+            const point = createPoint2D(p);
+            return !!this._ramps.find(c => areEqual(point, c));
         },
         hasCreep(p) {
             const point = createPoint2D(p);
@@ -185,6 +189,8 @@ function createMapManager(world) {
             return this._grids.height[point.y][point.x] / 10;
         },
         getCombatRally() {
+            if (this.isCustom()) return this.getCenter();
+
             const numOfBases = this.getOccupiedExpansions().length;
             if (combatRally && combatRally.numOfBases === numOfBases ) return combatRally.pos;
 
@@ -258,6 +264,8 @@ function createMapManager(world) {
             if (graph) {
                 this._graph = graph;
             } else {
+                // @WIP: uncomment for maybe useful debugging?
+                // console.log(this._mapSize.x, this._mapSize.y, this._grids.pathing.length, this._grids.pathing[0].length)
                 const newGraph = new PF.Grid(this._mapSize.x, this._mapSize.y, this._grids.pathing);
                 newGraph.nodes.forEach((row) => {
                     row.forEach((node) => {

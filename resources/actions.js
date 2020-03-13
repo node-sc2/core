@@ -27,13 +27,17 @@ function getRandomN(arr, n) {
  * @returns {ActionManager}
  * @param {World} world
  */
-function createActionManager(world) {
-    const protoClient = createTransport();
+function createActionManager(world, client) {
+    const protoClient = client || createTransport();
     
     return {
         _client: protoClient,
         async do(abilityId, ts, opts = {}) {
-            const tags = Array.isArray(ts) ? ts : [ts];
+            let tags = Array.isArray(ts) ? ts : [ts];
+
+            if (tags[0].tag) {
+                tags = tags.map(u => u.tag);
+            }
 
             /** @type {SC2APIProtocol.ActionRawUnitCommand} */
             const doAction = {
@@ -57,7 +61,9 @@ function createActionManager(world) {
                     return res;
                 });
         },
-        async smart(units, pos, queue = false) {
+        async smart(us, pos, queue = false) {
+            const units = Array.isArray(us) ? us : [us];
+
             const smartTo = {
                 abilityId: Ability.SMART,
                 unitTags: units.map(u => u.tag),

@@ -63,6 +63,24 @@ const unitSystem = {
         };
 
         /**
+         * Test for a unit transforming type
+         * @param {SC2APIProtocol.Unit} incData
+         * @param {Unit} currentUnit
+         */
+        const isTransforming = (incData, currentUnit) => {
+            return currentUnit.unitType !== incData.unitType;
+        };
+
+        /**
+         * Test for a unit finishing a burrow
+         * @param {SC2APIProtocol.Unit} incData
+         * @param {Unit} currentUnit
+         */
+        const hasBurrowed = (incData, currentUnit) => {
+            return incData.isBurrowed && !currentUnit.isBurrowed;
+        };
+
+        /**
          * Test for unit entering a skirmish
          * @param {SC2APIProtocol.Unit} incData
          * @param {Unit} currentUnit
@@ -108,11 +126,36 @@ const unitSystem = {
                         data: currentUnit,
                         type: 'all',
                     });
+
+                    // the unit is finished, but it's also idle
+                    if (unitData.orders.length > 0) {
+                        events.write({
+                            name: "unitIdle",
+                            data: currentUnit,
+                            type: 'all',
+                        });
+                    }
                 }
 
                 if (isIdle(unitData, currentUnit)) {
                     events.write({
                         name: "unitIdle",
+                        data: currentUnit,
+                        type: 'all',
+                    });
+                }
+
+                if (isTransforming(unitData, currentUnit)) {
+                    events.write({
+                        name: "unitIsTransforming",
+                        data: currentUnit,
+                        type: 'all',
+                    });
+                }
+
+                if (hasBurrowed(unitData, currentUnit)) {
+                    events.write({
+                        name: "unitHasBurrowed",
                         data: currentUnit,
                         type: 'all',
                     });
@@ -165,6 +208,15 @@ const unitSystem = {
                         data: newUnit,
                         type: 'all',
                     });
+
+                    // if it's unrallied, then it's also idle
+                    if (unitData.orders.length > 0) {
+                        events.write({
+                            name: "unitIdle",
+                            data: newUnit,
+                            type: 'all',
+                        });
+                    }
                 } else if (unitData.alliance === Alliance.ENEMY) {
                     events.write({
                         name: "enemyFirstSeen",

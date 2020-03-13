@@ -96,6 +96,8 @@ function createUnits(world) {
                 }
 
                 return filterArr(theUnits, filter);
+            } else if (typeof filter === 'function') {
+                return this.getAll().filter(filter);
             } else if (typeof filter === 'number') {
                 return Array.from(this._units[filter].values());
             } else {
@@ -124,7 +126,7 @@ function createUnits(world) {
         },
         getCombatUnits(filter = Alliance.SELF) {
             return this.getAlive(filter)
-                .filter(u => combatTypes.includes(u.unitType));
+                .filter(u => u.isCombatUnit());
         },
         getRangedCombatUnits() {
             return this.getCombatUnits()
@@ -141,6 +143,9 @@ function createUnits(world) {
             } else {
                 return workers.filter(u => !u.labels.has('command'));
             }
+        },
+        getIdle() {
+            return this.getAlive(Alliance.SELF).filter(u => u.noQueue);
         },
         getIdleWorkers() {
             return this.getWorkers().filter(w => w.noQueue);

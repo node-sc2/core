@@ -29,9 +29,12 @@ function unitPlugin(system) {
         const systemUnits = unitsFilter.reduce((sysUnits, unitType) =>{
             sysUnits[unitType] = units.getById(unitType)
                 .filter(u => u.isFinished())
-                .filter(systemUnit => {
+                .filter((systemUnit) => {
                     const unitTag = systemUnit.tag;
-                    return Object.values(labeledUnits).every(labelUnit => labelUnit.tag !== unitTag);
+                    const labeledTags = Object.values(labeledUnits)
+                        .reduce((pool, arr) => pool.concat(arr), [])
+                        .map(lu => lu.tag);
+                    return !labeledTags.includes(unitTag);
                 });
             return sysUnits;
         }, {});
@@ -55,25 +58,21 @@ function unitPlugin(system) {
     const onIdleFunctions = system.idleFunctions || {};
 
     system.onUnitIdle = async function(world, unit) {
-        labelsFilter.forEach((label) => {
+        const foundLabelFn = labelsFilter.find((label) => {
             if (unit.hasLabel(label)) {
-                return onIdleFunctions[label] ?
-                    reflect(onIdleFunctions[label], world, unit) :
-                    onIdleFunctions.labeled ?
-                        reflect(onIdleFunctions.labeled, world, unit, label) :
-                            onIdleFunctions[unit.unitType] ?
-                            reflect(onIdleFunctions[unit.unitType], world, unit) :
-                                undefined;
+                return !!onIdleFunctions[label];
             }
         });
 
-        if (unitsFilter.includes(unit.unitType)) {
-            if (onIdleFunctions[unit.unitType]) {
-                return reflect(onIdleFunctions[unit.unitType], world, unit);
-            }
+        if (foundLabelFn) {
+            return reflect(onIdleFunctions[foundLabelFn], world, unit);
+        } else if (!unit.hasNoLabels() && onIdleFunctions.labeled) {
+            return reflect(onIdleFunctions.labeled, world, unit, [...unit.labels.keys()][0]);
+        } else if (onIdleFunctions[unit.unitType]) {
+            return reflect(onIdleFunctions[unit.unitType], world, unit);
+        } else {
+            return systemOnUnitIdle(world, unit);
         }
-
-        return systemOnUnitIdle(world, unit);
     };
 
     system.onUnitCreated = async function(world, unit) {

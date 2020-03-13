@@ -21,7 +21,7 @@ const { cellsInFootprint } = require('../utils/geometry/plane');
 const { Alliance } = require('../constants/enums');
 const { MapDecompositionError } = require('../engine/errors');
 const Color = require('../constants/color');
-const { UnitTypeId } = require('../constants/');
+const { UnitType, UnitTypeId } = require('../constants');
 const { vespeneGeyserTypes, unbuildablePlateTypes, mineralFieldTypes } = require('../constants/groups');
 
 /**
@@ -161,6 +161,7 @@ function calculateWall(world, expansion) {
         const deadDiagNeighbors = diagNeighbors.filter(({ x, y }) => pathing[y][x] === 1);
 
         if ((deadNeighbors.length <= 0) && (deadDiagNeighbors.length <= 0)) {
+            // @FIXME: this is legitimately the worst possible way to check for a ramp
             if (neighbors.filter(({ x, y }) => miniMap[y][x] === 114).length <= 0) {
                 decomp.liveHull.push({ x, y });
             } else {
@@ -229,7 +230,7 @@ function calculateWall(world, expansion) {
     })
     .map(wall => wall.filter(cell => map.isPlaceable(cell)))
     .sort((a, b) => a.length - b.length)
-    .filter(wall => wall.length >= (live.length))
+    .filter(wall => wall.length >= live.length - 3)
     .filter (wall => distance(avgPoints(wall), avgPoints(live)) <= live.length)
     .filter((wall, i, arr) => wall.length === arr[0].length);
     
@@ -311,6 +312,9 @@ function calculateExpansions(world) {
 const mapSystem = {
     name: 'MapSystem',
     type: 'engine',
+    defaultOptions: {
+        stepIncrement: 1,
+    },
     async onGameStart(world) {
         const { units, frame, map, debug } = world.resources.get();
         const { startRaw } = frame.getGameInfo();
@@ -512,7 +516,11 @@ const mapSystem = {
     async onUnitDestroyed({ resources }, deadUnit) {
         const { map } = resources.get();
 
-        if (deadUnit.isStructure()) {
+        if (deadUnit.isStructure() && !deadUnit.isGasMine()) {
+            if (deadUnit.is(UnitType.PYLON)) {
+                // @WIP: unsure what this was debugging for, but leaving commented for posterity until i figure it out
+                // console.log(resources.get().frame.getGameLoop(), `pylon destroyed (or canceled?) progress is/was: ${deadUnit.buildProgress}`);
+            }
             const { pos } = deadUnit;
             const footprint = getFootprint(deadUnit.unitType);
 

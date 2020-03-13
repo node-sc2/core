@@ -1,6 +1,7 @@
 "use strict";
 
 // eslint-disable-next-line
+const debugWidget = require('debug')('sc2:DebugWidget');
 const Color = require('../constants/color');
 const getRandom = require('../utils/get-random');
 const { cellsInFootprint } = require('../utils/geometry/plane');
@@ -22,8 +23,10 @@ function createDebugger(world) {
         updateScreen() {
             const { actions: { _client } } = world.resources.get();
 
-            this._drawDebugWidget(widgetData);
-
+            if (debugWidget.enabled) {
+                this._drawDebugWidget(widgetData);
+            }
+            
             const debugCommands = Object.values(commands).reduce((commands, command) => {
                 return commands.concat(command);
             }, []);

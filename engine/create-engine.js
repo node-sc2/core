@@ -7,6 +7,7 @@ const argv = require('yargs')
     .number('StartPort')
     .number('GamePort')
     .string('LadderServer')
+    .string('OpponentId')
     .argv;
 const pascalCase = require('pascal-case');
 // const chalk = require('chalk');
@@ -63,6 +64,7 @@ function createEngine(options = {}) {
 
     /** @type {Engine} */
     const engine = {
+        getWorld() { return world; },
         _totalLoopDelay: 0,
         _gameLeft: false,
         launcher,
@@ -163,7 +165,7 @@ function createEngine(options = {}) {
                     };
 
                     if (isManaged) {
-                        let sPort = /** @type {number} */ argv.StartPort + 1;
+                        let sPort = argv.StartPort + 1;
 
                         participant = {
                             ...participant,
@@ -208,6 +210,10 @@ function createEngine(options = {}) {
         },
         async firstRun() {
             const { data, resources, agent } = world;
+
+            if (isManaged) {
+                agent.opponent.id = argv.OpponentId;
+            }
 
             /** @type {SC2APIProtocol.ResponseData} */
             const gameData = await _client.data({
@@ -361,6 +367,9 @@ function createEngine(options = {}) {
 
             // debug system runs last because it updates the in-client debug display
             return debugSystem(world);
+        },
+        shutdown() {
+            world.resources.get().actions._client.close();
         },
         _lastRequest: null,
     };

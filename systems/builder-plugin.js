@@ -1,6 +1,7 @@
 'use strict';
 
 const debugBuild = require('debug')('sc2:debug:build');
+const debugDraw = require('debug')('sc2:DrawDebug');
 const debugBuildSilly = require('debug')('sc2:silly:build');
 const { distance, distanceX, distanceY } = require('../utils/geometry/point');
 const getRandom = require('../utils/get-random');
@@ -172,12 +173,15 @@ function builderPlugin(system) {
         }
 
         if (buildTask.touched === false) {
-            debugBuild(`starting new build task: %o`, buildTask);
+            const taskName = buildTask.type === 'ability' ? AbilityId[buildTask.id]
+                    : buildTask.type === 'upgrade' ? UpgradeId[buildTask.id]
+                        : UnitTypeId[buildTask.id];
+            debugBuild(`starting new build task: ${buildTask.type} ${taskName}`);
             buildTask.started = gameLoop;
             buildTask.touched = true;
         }
 
-        if (debugBuild.enabled) {
+        if (debugDraw.enabled) {
             world.resources.get().debug.setDrawTextScreen('buildOrder', [{
                 pos: { x: 0.85, y: 0.1 },
                 text: `Build:\n\n${this.state[buildSym].map((buildTask, i) => {

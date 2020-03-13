@@ -1,6 +1,7 @@
 'use strict';
 
 const chalk = require('chalk');
+const Uint1Array = require('uint1array');
 
  /**
   * @param {Grid2D} grid 
@@ -30,19 +31,42 @@ function debugGrid(grid) {
 }
 
 /**
+ * @param {Uint8Array} buffer
+ * @param {number} i
+ * @param {number} bit
+ */
+function readSingleBit(buffer, i, bit){
+    return (buffer[i] >> bit) % 2;
+  }
+
+/**
  * @param {SC2APIProtocol.ImageData} imageData
  * @param {number} width
  * @returns {Grid2D}
  */
-function consumeImageData(imageData, width) {
+function consumeImageData(imageData, width, height = Infinity) {
+    // @WIP: none of this actually works... this debugger statement might help
+    // debugger;
+    if (!width) {
+        throw new Error('Map width needed to digest raw grids!');
+    }
+
+    const BYTE_LENGTH = imageData.data.byteLength;
+
     /* new fast code, 0.02ms per digestion */
     const arrayBuffer = imageData.data.buffer;
 
     const result = [];
     let i = 0;
-    
-    while (i < imageData.data.byteLength) {
-    	result.push(new Uint8Array(arrayBuffer, i + imageData.data.byteOffset, width));
+
+    while (i < BYTE_LENGTH) {
+        if (result.length >= height) {
+            break;
+        }
+        if (arrayBuffer.byteLength < (imageData.data.byteOffset + (i * 8))) {
+            break;
+        }
+    	result.push(new Uint1Array(arrayBuffer, (i * 8) + imageData.data.byteOffset, width));
     	i += width;
     }
     
@@ -64,11 +88,15 @@ function consumeImageData(imageData, width) {
  */
 function consumeRawGrids(raw) {
     const { mapSize, placementGrid: plGrid, pathingGrid: paGrid, terrainHeight: teGrid } = raw;
-    const width = mapSize.x;
+    const { x, y } = mapSize;
 
-    const placementGrid2D = consumeImageData(plGrid, width);
-    const pathingGrid2D = consumeImageData(paGrid, width);
-    const heightGrid2D = consumeImageData(teGrid, width);
+    // @WIP: more trying to log / debug things... maybe helpful?
+    // console.log(paGrid, paGrid.data.buffer);
+    const placementGrid2D = consumeImageData(plGrid, x, y);
+    const pathingGrid2D = consumeImageData(paGrid, x, y);
+    const heightGrid2D = consumeImageData(teGrid, x, y);
+
+    // console.log(pathingGrid2D)
 
     const height = heightGrid2D.map((row) => {
         return row.map(tile => {
@@ -81,31 +109,31 @@ function consumeRawGrids(raw) {
         });
     });
 
-    const placement = placementGrid2D.map((row) => {
-        return row.map(pixel => {
-            return pixel === 255 ? 1 : 0;
-        }); 
-    });
+    // const placement = placementGrid2D.map((row) => {
+    //     return row.map(pixel => {
+    //         return pixel === 255 ? 1 : 0;
+    //     }); 
+    // });
     
-    //debugGrid(placement);
+    debugGrid(placementGrid2D);
 
-    const pathing = pathingGrid2D.map((row) => {
-        return row.map(pixel => {
-            return pixel === 255 ? 1 : 0;
-        });
-    });
+    // const pathing = pathingGrid2D.map((row) => {
+    //     return row.map(pixel => {
+    //         return pixel === 255 ? 1 : 0;
+    //     });
+    // });
 
-    //debugGrid(pathing);
+    debugGrid(pathingGrid2D);
 
     return {
         height,
-        placement,
-        pathing,
-        miniMap: placement.map((row, y) => {
+        placement: placementGrid2D,
+        pathing: pathingGrid2D,
+        miniMap: placementGrid2D.map((row, y) => {
             return row.map((pixel, x) => {
-                if (pixel === 1 && pathing[y][x] === 1) {
+                if (pixel === 1 && pathingGrid2D[y][x] === 1) {
                     return 66;
-                } else if (pixel === 0 && pathing[y][x] === 0) {
+                } else if (pixel === 0 && pathingGrid2D[y][x] === 0) {
                     return 114;
                 } else {
                     return pixel;

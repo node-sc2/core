@@ -2,7 +2,7 @@
 
 const UnitType = require("../constants/unit-type");
 const Ability = require("../constants/ability");
-const { Alliance, WeaponTargetType, Attribute } = require("../constants/enums");
+const { Alliance, WeaponTargetType, Attribute, CloakState } = require("../constants/enums");
 const {
     techLabTypes,
     reactorTypes,
@@ -26,15 +26,38 @@ function createUnit(unitData, { data, resources }) {
 
     const { alliance } = unitData;
 
+    /** @type {Unit} */
     const blueprint = {
         tag: unitData.tag,
         lastSeen: frame.getGameLoop(),
         noQueue: unitData.orders.length === 0,
         labels: new Map(),
         _availableAbilities: [],
-        async burrow() {
+        async inject(t) {
+            if (this.canInject()) {
+                let target;
+                if (t) {
+                    target = t;
+                } else {
+                    const [idleHatch] = units.getById(UnitType.HATCH).filter(u => u.isIdle());
+                    if (idleHatch) {
+                        target = idleHatch;
+                    } else {
+                        return;
+                    }
+                }
+
+                return actions.do(Ability.EFFECT_INJECTLARVA, this.tag, { target });
+            }
+        },
+        async blink(target, opts = {}) {
+            if (this.canBlink()) {
+                return actions.do(Ability.EFFECT_BLINK, this.tag, { target, ...opts });
+            }
+        },
+        async burrow(opts = {}) {
             if (this.is(UnitType.WIDOWMINE)) {
-                return actions.do(Ability.BURROWDOWN, this.tag);
+                return actions.do(Ability.BURROWDOWN, this.tag, opts);
             }
         },
         async toggle(options = {}) {
@@ -68,6 +91,9 @@ function createUnit(unitData, { data, resources }) {
         getLabel(name) {
             return this.labels.get(name);
         },
+        getLife() {
+            return this.health / this.healthMax * 100;
+        },
         abilityAvailable(id) {
             return this._availableAbilities.includes(id);
         },
@@ -80,12 +106,18 @@ function createUnit(unitData, { data, resources }) {
         is(type) {
             return this.unitType === type;
         },
+        isCloaked() {
+            return this.cloak !== CloakState.NOTCLOAKED;
+        },
         isConstructing() {
             return this.orders.some(o => constructionAbilities.includes(o.abilityId));
         },
         isCombatUnit() {
             return combatTypes.includes(this.unitType);
         },
+        isEnemy() {
+            return this.alliance === Alliance.ENEMY;
+        }, 
         isFinished() {
             return this.buildProgress >= 1;
         },
@@ -130,6 +162,9 @@ function createUnit(unitData, { data, resources }) {
             // if this unit wasn't updated this frame, this will be false
             return this.lastSeen === frame.getGameLoop();
         },
+        isIdle() {
+            return this.noQueue;
+        },
         isStructure() {
             return this.data().attributes.includes(Attribute.STRUCTURE);
         },
@@ -140,6 +175,12 @@ function createUnit(unitData, { data, resources }) {
         hasTechLab() {
             const addon = units.getByTag(this.addOnTag);
             return techLabTypes.includes(addon.unitType);
+        },
+        canInject() {
+            return this.abilityAvailable(Ability.EFFECT_INJECTLARVA);
+        },
+        canBlink() {
+            return this.abilityAvailable(Ability.EFFECT_BLINK) || this.abilityAvailable(Ability.EFFECT_BLINK_STALKER);
         },
         canMove() {
             return this._availableAbilities.includes(Ability.MOVE);

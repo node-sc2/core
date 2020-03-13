@@ -186,6 +186,17 @@ const AbilityDataTarget = {
 
 const { valuesById: AbilityDataTargetId } = api.lookupType('AbilityData').lookupEnum('Target');
 
+/**
+ * @enum {SC2APIProtocol.CloakState}
+ */
+const CloakState = {
+    CLOAKED: 1,
+    CLOAKEDDETECTED: 2,
+    NOTCLOAKED: 3,
+};
+
+const { valuesById: CloakStateId } = api.lookupEnum('CloakState');
+
 module.exports = {
     AbilityDataTarget,
     AbilityDataTargetId,
@@ -198,6 +209,8 @@ module.exports = {
     BuildOrder,
     BuildOrderId,
     BuildResult,
+    CloakState,
+    CloakStateId,
     Difficulty,
     DifficultyId,
     DisplayType,
