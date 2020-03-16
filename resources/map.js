@@ -265,7 +265,8 @@ function createMapManager(world) {
                 this._graph = graph;
             } else {
                 // @WIP: uncomment for maybe useful debugging?
-                // console.log(this._mapSize.x, this._mapSize.y, this._grids.pathing.length, this._grids.pathing[0].length)
+                console.log(this._mapSize.x, this._mapSize.y, this._grids.pathing.length, this._grids.pathing[0].length)
+                // console.log(this._grids.pathing, this._grids.pathing[0])
                 const newGraph = new PF.Grid(this._mapSize.x, this._mapSize.y, this._grids.pathing);
                 newGraph.nodes.forEach((row) => {
                     row.forEach((node) => {

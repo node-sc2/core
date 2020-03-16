@@ -1,19 +1,28 @@
 'use strict';
 
 const chalk = require('chalk');
-const Uint1Array = require('uint1array');
+const Uint1Array = require('uint1array').default;
 
  /**
   * @param {Grid2D} grid 
   */
-function debugGrid(grid) {
+function debugGrid(grid, playable) {
+    const pointInRect = ({p0, p1}, x, y) => (
+        (x > p0.x && x < p1.x) && (y > p0.y && y < p1.y)
+    );
+
     const displayGrid = grid.slice();
-    displayGrid.reverse().forEach((row) => {
+
+    displayGrid.forEach((row, x) => {
         console.log(
-            row.map((pixel) => {
+            [...row].map((pixel, y) => {
                 switch(pixel) {
                     case 0:
-                        return ' ';
+                        if (!pointInRect(playable, x, y)) {
+                            return chalk.bgRed` `;
+                        } else {
+                            return chalk.bgGreen` `;
+                        }
                     case 1:
                         return '░';
                     case 104:
@@ -45,13 +54,14 @@ function readSingleBit(buffer, i, bit){
  * @returns {Grid2D}
  */
 function consumeImageData(imageData, width, height = Infinity) {
-    // @WIP: none of this actually works... this debugger statement might help
-    // debugger;
     if (!width) {
         throw new Error('Map width needed to digest raw grids!');
     }
 
+    const BYTE_OFFSET = imageData.data.byteOffset;
     const BYTE_LENGTH = imageData.data.byteLength;
+    const WIDTH_IN_BYTES = width * 0.125;
+    // const BITS_PER_PIXEL = imageData.bitsPerPixel;
 
     /* new fast code, 0.02ms per digestion */
     const arrayBuffer = imageData.data.buffer;
@@ -63,14 +73,18 @@ function consumeImageData(imageData, width, height = Infinity) {
         if (result.length >= height) {
             break;
         }
-        if (arrayBuffer.byteLength < (imageData.data.byteOffset + (i * 8))) {
+
+        if (arrayBuffer.byteLength < (BYTE_OFFSET + i )) {
             break;
         }
-    	result.push(new Uint1Array(arrayBuffer, (i * 8) + imageData.data.byteOffset, width));
-    	i += width;
+
+        const row = new Uint1Array(arrayBuffer, i + BYTE_OFFSET, WIDTH_IN_BYTES);
+        result.push(row);
+        i += WIDTH_IN_BYTES;
     }
-    
-    return result.reverse();
+
+    return result;
+    // return result.reverse();
 
     /* old slow code, ~2ms per digestion */
     // const gridarr = [...imageData.data];
@@ -90,13 +104,16 @@ function consumeRawGrids(raw) {
     const { mapSize, placementGrid: plGrid, pathingGrid: paGrid, terrainHeight: teGrid } = raw;
     const { x, y } = mapSize;
 
+    // console.log(mapSize, plGrid, paGrid)
     // @WIP: more trying to log / debug things... maybe helpful?
-    // console.log(paGrid, paGrid.data.buffer);
+    
     const placementGrid2D = consumeImageData(plGrid, x, y);
-    const pathingGrid2D = consumeImageData(paGrid, x, y);
-    const heightGrid2D = consumeImageData(teGrid, x, y);
+    debugGrid(placementGrid2D, raw.playableArea);
 
-    // console.log(pathingGrid2D)
+    const pathingGrid2D = consumeImageData(paGrid, x, y);
+    
+
+    const heightGrid2D = consumeImageData(teGrid, x, y);
 
     const height = heightGrid2D.map((row) => {
         return row.map(tile => {
@@ -115,15 +132,13 @@ function consumeRawGrids(raw) {
     //     }); 
     // });
     
-    debugGrid(placementGrid2D);
+    
 
     // const pathing = pathingGrid2D.map((row) => {
     //     return row.map(pixel => {
     //         return pixel === 255 ? 1 : 0;
     //     });
     // });
-
-    debugGrid(pathingGrid2D);
 
     return {
         height,

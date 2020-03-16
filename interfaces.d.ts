@@ -596,5 +596,6 @@ interface Engine {
     dispatch: () => Promise<any>;
     systems: SystemWrapper<EngineObject>[];
     firstRun: () => Promise<GameResult>
+    getWorld: () => World
     onGameEnd: (results: SC2APIProtocol.PlayerResult[]) => GameResult;
 }

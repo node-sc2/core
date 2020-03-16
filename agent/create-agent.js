@@ -36,7 +36,7 @@ function createAgent(blueprint = {}) {
             race: Race.RANDOM,
             ...blueprint.settings,
         },
-        interface: blueprint.interface || { raw: true },
+        interface: blueprint.interface || { raw: true, /* rawCropToPlayableArea: true */ },
         canAfford(unitTypeId, earmarkName) {
             const { data } = this._world;
             const { minerals, vespene } = this;
