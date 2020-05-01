@@ -1,7 +1,8 @@
 'use strict';
 
 const PF = require('pathfinding');
-const debugWeights = require('debug')('sc2:silly:DebugWeights');
+const debugWeights = require('debug')('sc2:DebugWeights');
+const debugPathable = require('debug')('sc2:DebugPathable');
 const { enums: { Alliance }, Color } = require('../constants');
 const { add, distance, avgPoints, closestPoint, areEqual } = require('../utils/geometry/point');
 const { gridsInCircle } = require('../utils/geometry/angle');
@@ -140,6 +141,11 @@ function createMapManager(world) {
         closestPathable(point, r = 3) {
             const allPathable = gridsInCircle(point, r, { normalize: true })
                 .filter(p => this.isPathable(p));
+
+            if (allPathable.length <= 0) {
+                throw new Error(`No pathable points within ${r} radius of point ${point}`);
+            }
+
             return closestPoint(point, allPathable);
         },
         /**
@@ -157,7 +163,9 @@ function createMapManager(world) {
                     distance: this.path(startPoint, add(expansion.townhallPosition, 3)).length,
                 };
             })
-            .filter(exp => exp.distance > 0)
+            .filter((exp) => {
+                return exp.distance > 0;
+            })
             .sort((a, b) => a.distance - b.distance)[0];
 
             return expansionOrder[closestIndex];
@@ -232,6 +240,22 @@ function createMapManager(world) {
         setGrids(newGrids) {
             // merging allows to update partial grids, or individual
             this._grids = { ...this._grids, ...newGrids };
+
+            if (debugPathable.enabled) {
+                world.resources.get().debug.setDrawCells('debugPathable', this._grids.pathing.reduce((cells, row, y) => {
+                    row.forEach((node, x) => {
+                        if (this.isPathable({x, y})) {
+                            cells.push({
+                                pos: {x, y},
+                                text: `p-able`,
+                                color: Color.LIME_GREEN,
+                            });
+                        }
+                    });
+
+                    return cells;
+                }, []));
+            }
         },
         setSize(mapSize) {
             this._mapSize = mapSize;
@@ -265,7 +289,7 @@ function createMapManager(world) {
                 this._graph = graph;
             } else {
                 // @WIP: uncomment for maybe useful debugging?
-                console.log(this._mapSize.x, this._mapSize.y, this._grids.pathing.length, this._grids.pathing[0].length)
+                // console.log(this._mapSize.x, this._mapSize.y, this._grids.pathing.length, this._grids.pathing[0].length)
                 // console.log(this._grids.pathing, this._grids.pathing[0])
                 const newGraph = new PF.Grid(this._mapSize.x, this._mapSize.y, this._grids.pathing);
                 newGraph.nodes.forEach((row) => {

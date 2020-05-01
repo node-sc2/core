@@ -221,7 +221,7 @@ function calculateWall(world, expansion) {
         const first = wall[0];
         const last = wall[wall.length -1];
 
-        const newGraph = map.newGraph(map._grids.placement.map(row => row.map(cell => cell === 0 ? 1 : 0)));
+        const newGraph = map.newGraph(map._grids.pathing);
 
         newGraph.setWalkableAt(first.x, first.y, true);
         newGraph.setWalkableAt(last.x, last.y, true);
@@ -270,7 +270,7 @@ function calculateExpansions(world) {
     // @TODO: handle the case of more than 1 enemy location
     const pathingEL = createPoint2D(map.getLocations().enemy[0]);
     pathingEL.x = pathingEL.x + 3;
-
+    
     let expansions;
     try {
         expansions = findClusters([...mineralFields, ...vespeneGeysers])
@@ -278,7 +278,6 @@ function calculateExpansions(world) {
             .map((expansion) => {
                 const start =  { ...expansion.townhallPosition };
                 start.x = start.x + 3;
-
                 const paths = {
                     pathFromMain: map.path(start, pathingSL),
                     pathFromEnemy: map.path(start, pathingEL),
@@ -362,6 +361,10 @@ const mapSystem = {
 
         // debug.setDrawCells('ramps', map._ramps.map(r => ({ pos: r })), { size: 0.5, cube: true });
         calculateExpansions(world);
+        
+        /**
+         * i guess... don't uncomment this until it's fixed?
+         */
         calculateWall(world, map.getNatural());
     },
     async onStep({ data, resources }) {
@@ -463,7 +466,7 @@ const mapSystem = {
                     row.forEach((placeable, x) => {
                         cells.push({
                             pos: { x, y },
-                            size: 0.2,
+                            size: 0.5,
                             color: placeable ? Color.LIME_GREEN : Color.RED,
                         });
                     });
