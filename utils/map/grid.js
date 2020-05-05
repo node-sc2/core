@@ -31,10 +31,12 @@ function debugGrid(grid, playable, height = false) {
                     case 66:
                         return chalk.bgBlue` `;
                     case 114:
-                        return ' ';
-                    case 104:
                         // @ts-ignore
-                        return chalk.bgGreen`░`;
+                        return chalk.bgCyanBright`░`;
+                    case 104:
+                        
+                        // ???
+                        return;
                     case 72:
                         // @ts-ignore
                         return chalk.bgRed`░`;
@@ -144,7 +146,7 @@ function consumeRawGrids(raw) {
     // debugGrid(placementGrid2D, raw.playableArea);
 
     const pathingGrid2D = consumeImageData(paGrid, x, y).map(row => row.map(cell => cell === 0 ? 1 : 0));
-    debugGrid(pathingGrid2D, raw.playableArea);
+    // debugGrid(pathingGrid2D, raw.playableArea);
 
     const heightGrid2D = consumeImageData(teGrid, x, y);
     
@@ -166,7 +168,7 @@ function consumeRawGrids(raw) {
         return row.map((pixel, x) => {
             if (pixel === 1 && pathingGrid2D[y][x] === 0) {
                 return 66;
-            } else if (pixel === 0 && pathingGrid2D[y][x] === 1) {
+            } else if (pixel === 0 && pathingGrid2D[y][x] === 0) {
                 return 114;
             } else {
                 return pixel;
