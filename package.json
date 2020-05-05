@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@node-sc2/proto": "^0.6.0-alpha.0",
+    "array.prototype.flat": "^1.2.3",
     "bluebird": "^3.5.3",
     "bresenham": "0.0.4",
     "chalk": "^3.0.0",

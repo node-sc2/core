@@ -5,6 +5,7 @@ const debugDrawMap = require('debug')('sc2:DrawDebugMap');
 const debugDrawWalls = require('debug')('sc2:DrawDebugWalls');
 const debugDebug = require('debug')('sc2:debug:MapSystem');
 const silly = require('debug')('sc2:silly:MapSystem');
+const flat = require('array.prototype.flat');
 const hullJs = require('hull.js');
 const bresenham = require('bresenham');
 const createSystem = require('./index');
@@ -13,7 +14,7 @@ const { createClusters: findClusters } = require('../utils/map/cluster');
 const createExpansion = require('../engine/create-expansion');
 const floodFill = require('../utils/map/flood');
 const { distanceAAShapeAndPoint } = require('../utils/geometry/plane');
-const { distance, avgPoints, areEqual, closestPoint, createPoint2D} = require('../utils/geometry/point');
+const { distance, avgPoints, areEqual, closestPoint, createPoint2D, getNeighbors } = require('../utils/geometry/point');
 const { frontOfGrid } = require('../utils/map/region');
 const { gridsInCircle } = require('../utils/geometry/angle');
 const { MineralField, VespeneGeyser, Townhall, getFootprint } = require('../utils/geometry/units');
@@ -134,110 +135,151 @@ function calculateRamps(minimap) {
  * @param {World} world
  */
 function calculateWall(world, expansion) {
-    const { map, debug } = world.resources.get();
+    const { map, units, debug } = world.resources.get();
+    const { placement } = map.getGrids();
 
     const hull = expansion.areas.hull;
     const foeHull = frontOfGrid(world, hull);
     // debug.setDrawCells('fonHull', foeHull.map(fh => ({ pos: fh })), { size: 0.50, color: Color.YELLOW, cube: true, persistText: true });
 
-    const { pathing, miniMap } = map.getGrids();
+    /**
+     * @FIXME: this is duplicated logic and can prolly be consolidated
+     */
 
-    const decomp = foeHull.reduce((decomp, { x, y }) => {
-        const neighbors = [
-            { y: y - 1, x},
-            { y, x: x - 1},
-            { y, x: x + 1},
-            { y: y + 1, x},
-        ];
 
-        const diagNeighbors = [
-            { y: y - 1, x: x - 1},
-            { y: y - 1, x: x + 1},
-            { y: y + 1, x: x - 1},
-            { y: y + 1, x: x + 1},
-        ];
+    const plates = units.getByType(unbuildablePlateTypes);
+    const cellsBlockedByUnbuildableUnit = flat(
+        plates.map(plate => {
+            const footprint = getFootprint(plate.unitType);
+            return cellsInFootprint(createPoint2D(plate.pos), footprint);
+        })
+    );
+    // debug.setDrawCells('blockedCells', cellsBlockedByUnbuildableUnit.map(fh => ({ pos: fh })), { size: 0.50, color: Color.YELLOW, cube: true, persistText: true });
 
-        const deadNeighbors = neighbors.filter(({ x, y }) => pathing[y][x] === 1);
-        const deadDiagNeighbors = diagNeighbors.filter(({ x, y }) => pathing[y][x] === 1);
+    /**
+     * 
+     * @param {Boolean} [rampDesired]
+     * @returns {Array<Point2D[]>}
+     */
+    function findAllPossibleWalls(rampDesired = true) {
+        const rampTest = point => rampDesired ? map.isRamp(point) : !map.isRamp(point);
 
-        if ((deadNeighbors.length <= 0) && (deadDiagNeighbors.length <= 0)) {
-            // @FIXME: this is legitimately the worst possible way to check for a ramp
-            if (neighbors.filter(({ x, y }) => miniMap[y][x] === 114).length <= 0) {
-                decomp.liveHull.push({ x, y });
-            } else {
-                decomp.liveRamp.push({ x, y });
+        const { deadHull, liveHull } = foeHull.reduce((decomp, point) => {
+            const neighbors = getNeighbors(point, false);
+            const diagNeighbors = getNeighbors(point, true, true);
+    
+            const deadNeighbors = neighbors.filter(point => !map.isPathable(point));
+            const deadDiagNeighbors = diagNeighbors.filter(point => !map.isPathable(point));
+    
+            if ((deadNeighbors.length <= 0) && (deadDiagNeighbors.length <= 0)) {
+                if (neighbors.some(rampTest)) {
+                    if (
+                        (!neighbors.some(point => cellsBlockedByUnbuildableUnit.some(cell => areEqual(cell,point))))
+                        && (!diagNeighbors.some(point => cellsBlockedByUnbuildableUnit.some(cell => areEqual(cell,point))))
+                    ) {
+                        decomp.liveHull.push(point);
+                    } else {
+                        // the ether...
+                    }
+                } else {
+                    // the ether...
+                }
             }
-        }
-
-        decomp.deadHull = decomp.deadHull.concat(deadNeighbors);
-        return decomp;
-    }, { deadHull: [], liveHull: [], liveRamp: [] });
-    const live = decomp.liveHull.length > 0 ? decomp.liveHull : decomp.liveRamp;
-
-    // debug.setDrawCells(`liveHull-${Math.floor(expansion.townhallPosition.x)}`, live.map(fh => ({ pos: fh })), { size: 0.5, color: Color.LIME_GREEN, cube: true });
-    // debug.setDrawCells(`deadHull-${Math.floor(expansion.townhallPosition.x)}`, decomp.deadHull.map(fh => ({ pos: fh })), { size: 0.5, color: Color.RED, cube: true });
-
-    const deadHullClusters = decomp.deadHull.reduce((clusters, dh) => {
-        if (clusters.length <= 0) {
-            const newCluster = [dh];
-            newCluster.centroid = dh;
-            clusters.push(newCluster);
+    
+            decomp.deadHull = decomp.deadHull.concat(
+                deadNeighbors.filter((neighborCell) => {
+                    const neighborsNeighbors = getNeighbors(neighborCell);
+                    return neighborsNeighbors.some(rampTest);
+                })
+            );
+    
+            return decomp;
+        }, { deadHull: [], liveHull: [] });
+    
+        // debug.setDrawCells(`liveHull-${Math.floor(expansion.townhallPosition.x)}`, live.map(fh => ({ pos: fh })), { size: 0.75, color: Color.LIME_GREEN, cube: true });
+        // debug.setDrawCells(`deadHull-${Math.floor(expansion.townhallPosition.x)}`, decomp.deadHull.map(fh => ({ pos: fh })), { size: 0.75, color: Color.RED, cube: true });
+    
+        const deadHullClusters = deadHull.reduce((clusters, deadHullCell) => {
+            if (clusters.length <= 0) {
+                const newCluster = [deadHullCell];
+                newCluster.centroid = deadHullCell;
+                clusters.push(newCluster);
+                return clusters;
+            }
+    
+            const clusterIndex = clusters.findIndex(cluster => distance(cluster.centroid, deadHullCell) < (liveHull.length - 1));
+            if (clusterIndex !== -1) {
+                clusters[clusterIndex].push(deadHullCell);
+                clusters[clusterIndex].centroid = avgPoints(clusters[clusterIndex]);
+            } else {
+                const newCluster = [deadHullCell];
+                newCluster.centroid = deadHullCell;
+                clusters.push(newCluster);
+            }
+    
             return clusters;
-        }
-
-        const clusterIndex = clusters.findIndex(cluster => distance(cluster.centroid, dh) < (live.length - 1));
-        if (clusterIndex !== -1) {
-            clusters[clusterIndex].push(dh);
-            clusters[clusterIndex].centroid = avgPoints(clusters[clusterIndex]);
-        } else {
-            const newCluster = [dh];
-            newCluster.centroid = dh;
-            clusters.push(newCluster);
-        }
-
-        return clusters;
-    }, []);
-
-    // debug.setDrawTextWorld(`liveHullLength-${Math.floor(expansion.townhallPosition.x)}`, [{ pos: createPoint2D(avgPoints(live)), text: `${live.length}` }]);
-
-    // deadHullClusters.forEach((cluster, i) => {
-    //     debug.setDrawCells(`dhcluster-${Math.floor(expansion.townhallPosition.x)}-${i}`, cluster.map(fh => ({ pos: fh })), { size: 0.8, cube: true });
-    // });
-
-    const allPossibleWalls = deadHullClusters.reduce((walls, cluster, i) => {
-        const possibleWalls = cluster.map(cell => {
-            const notOwnClusters = deadHullClusters.filter((c, j) => j !== i);
-            return notOwnClusters.map(jcluster => {
-                const closestCell = closestPoint(cell, jcluster);
-                const line = [];
-                bresenham(cell.x, cell.y, closestCell.x, closestCell.y, (x, y) => line.push({x, y}));
-                return line;
-            });
-        }).reduce((walls, wall) => walls.concat(wall), []);
-
-        return walls.concat(possibleWalls);
-    }, [])
-    .map(wall => {
-        const first = wall[0];
-        const last = wall[wall.length -1];
-
-        const newGraph = map.newGraph(map._grids.pathing);
-
-        newGraph.setWalkableAt(first.x, first.y, true);
-        newGraph.setWalkableAt(last.x, last.y, true);
-        return map.path(wall[0], wall[wall.length -1], { graph: newGraph, diagonal: true })
-            .map(([x, y]) => ({ x, y }));
-    })
-    .map(wall => wall.filter(cell => map.isPlaceable(cell)))
-    .sort((a, b) => a.length - b.length)
-    .filter(wall => wall.length >= live.length - 3)
-    .filter (wall => distance(avgPoints(wall), avgPoints(live)) <= live.length)
-    .filter((wall, i, arr) => wall.length === arr[0].length);
+        }, []);
     
+        // debug.setDrawTextWorld(`liveHullLength-${Math.floor(expansion.townhallPosition.x)}`, [{ pos: createPoint2D(avgPoints(live)), text: `${live.length}` }]);
+    
+        // deadHullClusters.forEach((cluster, i) => {
+        //     debug.setDrawCells(`dhcluster-${Math.floor(expansion.townhallPosition.x)}-${i}`, cluster.map(fh => ({ pos: fh })), { size: 0.8, cube: true });
+        // });
+    
+        return deadHullClusters.reduce((walls, cluster, i) => {
+            const possibleWalls = flat(
+                cluster.map(cell => {
+                    const notOwnClusters = deadHullClusters.filter((c, j) => j !== i);
+                    return notOwnClusters.map(jcluster => {
+                        const closestCell = closestPoint(cell, jcluster);
+                        const line = [];
+                        bresenham(cell.x, cell.y, closestCell.x, closestCell.y, (x, y) => line.push({x, y}));
+                        return line;
+                    });
+                })
+            );
+    
+            return walls.concat(possibleWalls);
+        }, [])
+        .map(wall => {
+            const first = wall[0];
+            const last = wall[wall.length -1];
+    
+            const newGraph = map.newGraph(placement.map(row => row.map(cell => cell === 0 ? 1 : 0)));
+    
+            newGraph.setWalkableAt(first.x, first.y, true);
+            newGraph.setWalkableAt(last.x, last.y, true);
+            return map.path(wall[0], wall[wall.length -1], { graph: newGraph, diagonal: true })
+                .map(([x, y]) => ({ x, y }));
+        })
+        .map(wall => { 
+            // debug.setDrawCells(`middleWallCalc-${Math.floor(expansion.townhallPosition.x)}`, wall.map(fh => ({ pos: fh })), { size: 1, color: Color.HOT_PINK, cube: false });
+            return wall.filter(cell => map.isPlaceable(cell));
+        })
+        .sort((a, b) => a.length - b.length)
+        .filter(wall => wall.length >= liveHull.length)
+        .filter (wall => distance(avgPoints(wall), avgPoints(liveHull)) <= liveHull.length)
+    }
+
+    // try first assuming we have a nat ramp
+    let allPossibleWalls = findAllPossibleWalls(true);
+
+    if (!allPossibleWalls[0]) {
+        // now try assuming there is no ramp
+        allPossibleWalls = findAllPossibleWalls(false);
+    }
+
+    /**
+     * @FIXME: we just sort of assume we always found a wall here... should be some contingency 
+     */
     const [shortestWall] = allPossibleWalls;
-    
+
     if (debugDrawWalls.enabled) {
-        debug.setDrawCells(`dhwall`, shortestWall.map(fh => ({ pos: fh })), { size: 0.8, color: Color.YELLOW, cube: true, persistText: true, });
+        debug.setDrawCells(
+            `dhwall`,
+            shortestWall.map(fh => ({ pos: fh })),
+            { size: 0.9, color: Color.FUCHSIA, cube: true, persistText: true }
+        );
     }
 
     expansion.areas.wall = shortestWall;
@@ -334,6 +376,19 @@ const mapSystem = {
         map.setRamps(calculateRamps(map._grids.miniMap).map((rPoint) => {
             return Object.assign(rPoint, { z: map.getHeight(rPoint) });
         }));
+
+        map.setRamps(map._ramps.filter((possibleRamp) => {
+            const { x, y } = possibleRamp;
+            // this is necessary because some maps have random tiles that aren't placeable but are pathable
+            const neighbors = [
+                { y: y - 1, x},
+                { y, x: x - 1},
+                { y, x: x + 1},
+                { y: y + 1, x},
+            ];
+
+            return neighbors.some(point => map.isRamp(point));
+        }));
         
         // mark cells under geysers, destructable plates, and mineral fields as initially unplaceable
         const geysers = units.getGasGeysers();
@@ -361,10 +416,6 @@ const mapSystem = {
 
         // debug.setDrawCells('ramps', map._ramps.map(r => ({ pos: r })), { size: 0.5, cube: true });
         calculateExpansions(world);
-        
-        /**
-         * i guess... don't uncomment this until it's fixed?
-         */
         calculateWall(world, map.getNatural());
     },
     async onStep({ data, resources }) {
