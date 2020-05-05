@@ -164,15 +164,17 @@ function consumeRawGrids(raw) {
 
     const miniMap = placementGrid2D.map((row, y) => {
         return row.map((pixel, x) => {
-            if (pixel === 1 && pathingGrid2D[y][x] === 1) {
+            if (pixel === 1 && pathingGrid2D[y][x] === 0) {
                 return 66;
-            } else if (pixel === 0 && pathingGrid2D[y][x] === 0) {
+            } else if (pixel === 0 && pathingGrid2D[y][x] === 1) {
                 return 114;
             } else {
                 return pixel;
             }
         });
     });
+
+    // debugGrid(miniMap, raw.playableArea);
 
     return {
         height,
