@@ -179,35 +179,49 @@ const createPoint2D = ({x, y}) => ({ x: Math.floor(x), y: Math.floor(y) });
  */
 const createPoint = ({x, y, z}) => ({ x: Math.floor(x), y: Math.floor(y), z:  Math.floor(z) });
 
+
+/**
+ * 
+ * @param {Point2D} param0 
+ * @returns {Point2D[]}
+ */
+const getAdjacents = ({ x, y }) => [
+    { y: y - 1, x},
+    { y, x: x - 1},
+    { y, x: x + 1},
+    { y: y + 1, x},
+];
+
+/**
+ * 
+ * @param {Point2D} param0 
+ * @returns {Point2D[]}
+ */
+const getDiagonals = ({ x, y }) => [
+    { y: y - 1, x: x - 1},
+    { y: y - 1, x: x + 1},
+    { y: y + 1, x: x - 1},
+    { y: y + 1, x: x + 1},
+];
+
 /**
  * 
  * @param {Point2D} point 
- * @param {boolean} includeDiagonal 
+ * @param {boolean} includeDiagonals
+ * @param {boolean} diagonalsOnly
  */
-function getNeighbors(point, includeDiagonal = true) {
+function getNeighbors(point, includeDiagonals = true, diagonalsOnly = false) {
     const normal = createPoint2D(point);
-
-    const getAdjacents = ({ x, y }) => [
-        { y: y - 1, x},
-        { y, x: x - 1},
-        { y, x: x + 1},
-        { y: y + 1, x},
-    ];
-
-    const getDiags = ({ x, y }) => [
-        { y: y - 1, x: x - 1},
-        { y: y - 1, x: x + 1},
-        { y: y + 1, x: x - 1},
-        { y: y + 1, x: x + 1},
-    ];
 
     let neighbors = getAdjacents(normal);
 
-    if (includeDiagonal) {
-        neighbors = neighbors.concat(getDiags(normal));
+    if (includeDiagonals && diagonalsOnly) {
+        return getDiagonals(normal);
+    } else if (includeDiagonals) {
+        return neighbors.concat(getDiagonals(normal));
+    } else {
+        return neighbors;
     }
-
-    return neighbors;
 }
 
 module.exports = {
