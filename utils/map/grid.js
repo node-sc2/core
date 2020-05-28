@@ -1,7 +1,7 @@
 'use strict';
 
 const chalk = require('chalk');
-const Uint1Array = require('uint1array').default;
+// const Uint1Array = require('uint1array').default;
 
 /**
  * @param {Grid2D} grid 
