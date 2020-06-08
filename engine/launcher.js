@@ -7,6 +7,7 @@ const { promisify } = require('util');
 const { spawn } = require('child_process');
 const path = require('path');
 const findP = require('find-process');
+const isPortReachable = require('is-port-reachable');
 
 let EXECUTE_INFO_PATH;
 if (os.platform() === 'darwin') {
@@ -83,10 +84,15 @@ async function launcher(options = {}) {
         stdio: 'ignore',
     });
 
-    // don't try this at home kids...
     debug(`Waiting for new process to start listening on port ${opts.port}...`);
-    while({ pid: 0, ...(await findP('port', opts.port))[0] }.pid !== clientProcess.pid);
+    let portReachable = false;
+    while (!portReachable) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        portReachable = await isPortReachable(opts.port, {host: opts.listen});
+        debug(`${opts.listen}:${opts.port} => reachable: ${portReachable}`);
+    }
     debug('New client is up and running successfully');
+
 
     clientProcess.unref();
     return clientProcess;

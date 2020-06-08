@@ -29,6 +29,7 @@
     "debug": "^4.1.0",
     "find-process": "^1.2.1",
     "hull.js": "^0.2.10",
+    "is-port-reachable": "3.0.0",
     "lodash.filter": "^4.6.0",
     "lodash.xor": "^4.5.0",
     "memoizee": "^0.4.14",
