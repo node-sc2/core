@@ -185,7 +185,7 @@ interface UnitResource {
     getRangedCombatUnits(): Unit[];
     getAll: (filter?: (number | UnitFilter)) => Unit[];
     getAlive: (filter?: (number | UnitFilter)) => Unit[];
-    getById: (unitTypeId: number, filter?: UnitFilter) => Unit[];
+    getById: (unitTypeId: (number | number[]), filter?: UnitFilter) => Unit[];
     getByTag(unitTags: string): Unit;
     getByTag(unitTags: string[]): Unit[];
     getClosest(pos: Point2D, units: Unit[], n?: number): Unit[];

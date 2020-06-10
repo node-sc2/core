@@ -43,6 +43,9 @@ function createAgent(blueprint = {}) {
 
             const earmarks = data.getEarmarkTotals(earmarkName);
             const unitType = data.getUnitTypeData(unitTypeId);
+
+            // console.log("current earmarks", earmarks);
+            // console.log("mineral cost:", unitType.mineralCost);
             
             const result = (
                 (minerals - earmarks.minerals >= unitType.mineralCost) &&

@@ -2,7 +2,8 @@
 
 const UnitType = require("../constants/unit-type");
 const Ability = require("../constants/ability");
-const { Alliance, WeaponTargetType, Attribute, CloakState } = require("../constants/enums");
+const { TownhallRace } = require("../constants/race-map");
+const { Alliance, WeaponTargetType, Attribute, CloakState, Race } = require("../constants/enums");
 const {
     techLabTypes,
     reactorTypes,
@@ -39,9 +40,14 @@ function createUnit(unitData, { data, resources }) {
                 if (t) {
                     target = t;
                 } else {
-                    const [idleHatch] = units.getById(UnitType.HATCH).filter(u => u.isIdle());
-                    if (idleHatch) {
-                        target = idleHatch;
+                    const [closestIdleHatch] = units.getClosest(
+                        this.pos,
+                        units.getById(TownhallRace[Race.ZERG]),
+                        3
+                    ).filter(u => u.isIdle());
+
+                    if (closestIdleHatch) {
+                        target = closestIdleHatch;
                     } else {
                         return;
                     }

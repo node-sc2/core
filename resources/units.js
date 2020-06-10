@@ -111,8 +111,10 @@ function createUnits(world) {
         getAlive(filter) {
             return this.getAll(filter).filter(u => u.isCurrent());
         },
-        getById(unitTypeId, filter = { alliance: Alliance.SELF }) {
-            return this.getAlive(filter).filter(u => u.unitType === unitTypeId);
+        getById(unitTypeIds, filter = { alliance: Alliance.SELF }) {
+            const typeIds = Array.isArray(unitTypeIds) ? unitTypeIds : [unitTypeIds];
+
+            return this.getAlive(filter).filter(u => typeIds.includes(u.unitType));
         },
         // @ts-ignore overloads are hard apparently
         getByTag(unitTags) {
