@@ -105,8 +105,8 @@ interface SystemWrapper<T> {
 }
 
 type Opponent = {
-    id: string;
-    race: SC2APIProtocol.Race;
+    id?: string;
+    race?: SC2APIProtocol.Race;
 }
 
 interface PlayerData extends SC2APIProtocol.PlayerCommon, SC2APIProtocol.PlayerRaw { }

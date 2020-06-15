@@ -212,6 +212,7 @@ function createEngine(options = {}) {
             const { data, resources, agent } = world;
 
             if (isManaged) {
+                agent.opponent = agent.opponent || {};
                 agent.opponent.id = argv.OpponentId;
             }
 

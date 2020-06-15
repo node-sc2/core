@@ -188,7 +188,7 @@ function createAgent(blueprint = {}) {
                  * @TODO: the first time we see an enemy unit, we should set the value of this on the agent and then 
                  * memoize it
                  */
-                this.enemy = {
+                this.opponent = {
                     race: enemyPlayer.raceRequested !== Race.RANDOM ? enemyPlayer.raceRequested : Race.NORACE,
                 };
             }
