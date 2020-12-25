@@ -9,24 +9,13 @@ const path = require('path');
 const findP = require('find-process');
 
 let EXECUTE_INFO_PATH;
-if (os.platform() === 'darwin') {
-    EXECUTE_INFO_PATH = path.join('Library', 'Application Support', 'Blizzard', 'StarCraft II', 'ExecuteInfo.txt');
-} else {
-    EXECUTE_INFO_PATH = path.join('Documents', 'StarCraft II', 'ExecuteInfo.txt');
-}
-
-const HOME_DIR = os.homedir();
-
-const executeInfoText = fs.readFileSync(path.join(HOME_DIR, EXECUTE_INFO_PATH)).toString();
-const executablePath = executeInfoText.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/m)[2];
-
-const parsedPath = executablePath.split(path.sep);
-const execName = parsedPath[parsedPath.length - 1];
-
-const basePath = parsedPath.slice(0, parsedPath.findIndex(s => s === 'StarCraft II') + 1).join(path.sep);
+let executablePath;
+let execName;
+let basePath;
 
 /** @type {Launcher} */
 async function launcher(options = {}) {
+    setupFilePaths();
     const opts = {
         listen: '127.0.0.1',
         port: 5000,
@@ -117,6 +106,24 @@ async function findMap(mapName) {
     }
 
     throw new Error(`Map "${mapName}" not found`);
+}
+
+function setupFilePaths() {
+    if (os.platform() === 'darwin') {
+        EXECUTE_INFO_PATH = path.join('Library', 'Application Support', 'Blizzard', 'StarCraft II', 'ExecuteInfo.txt');
+    } else {
+        EXECUTE_INFO_PATH = path.join('Documents', 'StarCraft II', 'ExecuteInfo.txt');
+    }
+    
+    const HOME_DIR = os.homedir();
+    
+    const executeInfoText = fs.readFileSync(path.join(HOME_DIR, EXECUTE_INFO_PATH)).toString();
+    executablePath = executeInfoText.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/m)[2];
+    
+    const parsedPath = executablePath.split(path.sep);
+    execName = parsedPath[parsedPath.length - 1];
+    
+    basePath = parsedPath.slice(0, parsedPath.findIndex(s => s === 'StarCraft II') + 1).join(path.sep);
 }
 
 module.exports = { launcher, findMap };
