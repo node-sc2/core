@@ -115,11 +115,22 @@ function consumeImageData(imageData, width, height = Infinity) {
 
     if (BITS_PER_PIXEL === 1 ) {
         data = data.reduce((pixels, byte) => {
-            return pixels.concat(byte.toString(2).padStart(8, '0').split('').map(s => parseInt(s, 10)));
+            pixels.push(
+                (byte >> 7) & 1,
+                (byte >> 6) & 1,
+                (byte >> 5) & 1,
+                (byte >> 4) & 1,
+                (byte >> 3) & 1,
+                (byte >> 2) & 1,
+                (byte >> 1) & 1,
+                (byte >> 0) & 1
+            );
+            
+            return pixels;
         }, []);
     }
+
     const result = [];
-    let i = 0;
 
     while (data.length > 0) {
         if (result.length > height) {
@@ -127,7 +138,6 @@ function consumeImageData(imageData, width, height = Infinity) {
         }
 
         result.push(data.splice(0, width));
-        i += width;
     }
 
     return result;
