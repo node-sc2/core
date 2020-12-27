@@ -1,6 +1,6 @@
 {
   "name": "@node-sc2/core",
-  "version": "0.8.2",
+  "version": "0.9.0-beta.1",
   "description": "A lightweight node.js framework to facilitate writing agents (or 'bots') for Starcraft II in JavaScript.",
   "main": "sc2.js",
   "typings": "sc2.d.ts",
@@ -20,10 +20,11 @@
     "eslint-config-problems": "^1.1.0"
   },
   "dependencies": {
-    "@node-sc2/proto": "^0.5.7",
+    "@node-sc2/proto": "^0.6.0-alpha.0",
+    "array.prototype.flat": "^1.2.3",
     "bluebird": "^3.5.3",
     "bresenham": "0.0.4",
-    "chalk": "^2.4.1",
+    "chalk": "^3.0.0",
     "convert-hrtime": "^2.0.0",
     "create-error": "^0.3.1",
     "debug": "^4.1.0",
@@ -38,6 +39,7 @@
     "protobufjs": "^6.8.8",
     "range": "0.0.3",
     "shortid": "^2.2.14",
+    "uint1array": "^1.1.1",
     "yargs": "^12.0.5"
   }
 }

@@ -104,8 +104,9 @@ interface SystemWrapper<T> {
     _system: System;
 }
 
-type Enemy = {
-    race: SC2APIProtocol.Race;
+type Opponent = {
+    id?: string;
+    race?: SC2APIProtocol.Race;
 }
 
 interface PlayerData extends SC2APIProtocol.PlayerCommon, SC2APIProtocol.PlayerRaw { }
@@ -122,7 +123,7 @@ interface Agent extends PlayerData {
     canAffordUpgrade: (upgradeId: number) => boolean;
     hasTechFor: (unitTypeId: number) => boolean;
     race?: SC2APIProtocol.Race;
-    enemy?: Enemy;
+    opponent?: Opponent;
     settings: SC2APIProtocol.PlayerSetup;
     systems: SystemWrapper<System>[];
     use: (sys: (SystemWrapper<System> | SystemWrapper<System>[])) => void;
@@ -140,25 +141,36 @@ interface Unit extends SC2APIProtocol.Unit {
     availableAbilities: () => Array<number>;
     data: () => SC2APIProtocol.UnitTypeData;
     is: (unitType: UnitTypeId) => boolean;
+    isCloaked: () => boolean;
+    isConstructing: () => boolean;
     isCombatUnit: () => boolean;
+    isEnemy: () => boolean;
     isFinished: () => boolean;
     isWorker: () => boolean;
     isTownhall: () => boolean;
     isGasMine: () => boolean;
     isMineralField: () => boolean;
     isStructure: () => boolean;
+    isIdle: () => boolean;
     isCurrent: () => boolean;
     isHolding: () => boolean;
     isGathering: (type?: 'minerals' | 'vespene') => boolean;
+    isReturning: () => boolean;
     hasReactor: () => boolean;
     hasTechLab: () => boolean;
     hasNoLabels: () => boolean;
+    canInject: () => boolean;
+    canBlink: () => boolean;
     canMove: () => boolean;
     canShootUp: () => boolean;
     update: (unit: SC2APIProtocol.Unit) => void;
+    inject: (target?: Unit) => Promise<SC2APIProtocol.ResponseAction>;
+    blink: (target: Point2D, opts: AbilityOptions) => Promise<SC2APIProtocol.ResponseAction>;
     toggle: (options: AbilityOptions) => Promise<SC2APIProtocol.ResponseAction>;
+    burrow: (options: AbilityOptions) => Promise<SC2APIProtocol.ResponseAction>;
     addLabel: (name: string, value: any) => Map<string, any>;
     hasLabel: (name: string) => boolean;
+    getLife: () => number;
     getLabel: (name: string) => any;
     removeLabel: (name: string) => boolean;
 }
@@ -173,7 +185,7 @@ interface UnitResource {
     getRangedCombatUnits(): Unit[];
     getAll: (filter?: (number | UnitFilter)) => Unit[];
     getAlive: (filter?: (number | UnitFilter)) => Unit[];
-    getById: (unitTypeId: number, filter?: UnitFilter) => Unit[];
+    getById: (unitTypeId: (number | number[]), filter?: UnitFilter) => Unit[];
     getByTag(unitTags: string): Unit;
     getByTag(unitTags: string[]): Unit[];
     getClosest(pos: Point2D, units: Unit[], n?: number): Unit[];
@@ -584,5 +596,6 @@ interface Engine {
     dispatch: () => Promise<any>;
     systems: SystemWrapper<EngineObject>[];
     firstRun: () => Promise<GameResult>
+    getWorld: () => World
     onGameEnd: (results: SC2APIProtocol.PlayerResult[]) => GameResult;
 }

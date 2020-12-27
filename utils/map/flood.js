@@ -14,8 +14,8 @@ const { distance } = require('../geometry/point');
  */
 function floodFill(mapData, x, y, oldVal, newVal, maxReach = false, filled = [], startPos) {
     
-    const mapWidth = mapData.length;
-    const mapHeight = mapData[0].length;
+    const mapHeight = mapData.length;
+    const mapWidth = mapData[0].length;
 
     if (startPos == null) {
         startPos = { x, y };
@@ -29,6 +29,7 @@ function floodFill(mapData, x, y, oldVal, newVal, maxReach = false, filled = [],
         return filled;
     }
 
+    // console.log(`in floodFill - x: ${x}, y: ${y}, maxReach: ${maxReach}`);
     if (mapData[y][x] !== oldVal || filled.some(pix => pix.x === x && pix.y === y)) {
         return filled;
     }

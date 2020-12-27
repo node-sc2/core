@@ -36,13 +36,16 @@ function createAgent(blueprint = {}) {
             race: Race.RANDOM,
             ...blueprint.settings,
         },
-        interface: blueprint.interface || { raw: true },
+        interface: blueprint.interface || { raw: true, rawCropToPlayableArea: true },
         canAfford(unitTypeId, earmarkName) {
             const { data } = this._world;
             const { minerals, vespene } = this;
 
             const earmarks = data.getEarmarkTotals(earmarkName);
             const unitType = data.getUnitTypeData(unitTypeId);
+
+            // console.log("current earmarks", earmarks);
+            // console.log("mineral cost:", unitType.mineralCost);
             
             const result = (
                 (minerals - earmarks.minerals >= unitType.mineralCost) &&
@@ -185,7 +188,7 @@ function createAgent(blueprint = {}) {
                  * @TODO: the first time we see an enemy unit, we should set the value of this on the agent and then 
                  * memoize it
                  */
-                this.enemy = {
+                this.opponent = {
                     race: enemyPlayer.raceRequested !== Race.RANDOM ? enemyPlayer.raceRequested : Race.NORACE,
                 };
             }

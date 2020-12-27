@@ -1,6 +1,7 @@
 "use strict";
 
 const debugEarmark = require('debug')('sc2:debug:earmark');
+const { Race, Attribute } = require('../constants/enums');
 const { AbilitiesByUnit } = require('../constants');
 
 /**
@@ -29,7 +30,20 @@ function createDataManager() {
                 .map(unitAbility => parseInt(unitAbility[0], 10));
         },
         getUnitTypeData(unitTypeId) {
-            return this.get('units')[unitTypeId];
+            /** @type {SC2APIProtocol.UnitTypeData} */
+            const unitData = this.get('units')[unitTypeId];
+
+            /**
+             * Fixes unit cost for zerg structures (removes the 'drone cost' inflation)
+             */
+            if (unitData.race === Race.ZERG && unitData.attributes.includes(Attribute.STRUCTURE)) {
+                return {
+                    ...unitData,
+                    mineralCost: unitData.mineralCost - 50,
+                };
+            } else {
+                return unitData;
+            }
         },
         getUpgradeData(upgradeId) {
             return this.get('upgrades')[upgradeId];

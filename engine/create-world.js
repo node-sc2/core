@@ -10,7 +10,7 @@ const MapManager = require('../resources/map');
 const UnitManager = require('../resources/units');
 
 /** @returns {World} */
-function createWorld() {
+function createWorld(client) {
     const world = {
         agent: null,
         data: null,
@@ -26,7 +26,7 @@ function createWorld() {
         debug: Debugger(world),
         units: UnitManager(world),
         events: EventChannel(world),
-        actions: ActionManager(world),
+        actions: ActionManager(world, client),
     });
 
     return world;

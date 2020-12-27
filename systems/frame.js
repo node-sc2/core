@@ -22,6 +22,7 @@ const frameSystem = {
         ]);
 
         frame._gameInfo = gameInfo;
+        frame._gameLoop = responseObservation.observation.gameLoop;
         frame._observation = responseObservation.observation;
     },
     async onStep({ resources }) {
