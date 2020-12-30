@@ -140,6 +140,9 @@ const gasMineTypes = [
     UnitType.EXTRACTOR,
     UnitType.ASSIMILATOR,
     UnitType.REFINERY,
+    UnitType.RICHEXTRACTOR,
+    UnitType.RICHASSIMILATOR,
+    UnitType.RICHREFINERY,
 ];
 
 /** @type {UnitTypeGroup} */
