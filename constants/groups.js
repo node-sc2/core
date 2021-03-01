@@ -338,6 +338,7 @@ module.exports = {
     gasMineTypes,
     gatheringAbilities,
     mineralFieldTypes,
+    richGasMineTypes,
     reactorTypes,
     returningAbilities,
     structureTypes,
