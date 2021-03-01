@@ -136,10 +136,18 @@ const mineralFieldTypes = [
 ];
 
 /** @type {UnitTypeGroup} */
+const richGasMineTypes = [
+    UnitType.RICHEXTRACTOR,
+    UnitType.RICHASSIMILATOR,
+    UnitType.RICHREFINERY,
+]
+
+/** @type {UnitTypeGroup} */
 const gasMineTypes = [
     UnitType.EXTRACTOR,
     UnitType.ASSIMILATOR,
     UnitType.REFINERY,
+    ...richGasMineTypes
 ];
 
 /** @type {UnitTypeGroup} */
@@ -330,6 +338,7 @@ module.exports = {
     gasMineTypes,
     gatheringAbilities,
     mineralFieldTypes,
+    richGasMineTypes,
     reactorTypes,
     returningAbilities,
     structureTypes,
